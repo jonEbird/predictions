@@ -1,0 +1,31 @@
+$def with (games)
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>Game Predictions</title>
+<link type="text/css" rel="stylesheet" href="/static/style.css" media="all">
+<!-- http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js -->
+<!-- <script type="text/javascript" src="/static/jquery.min.js"></script> -->
+</head>
+<body>
+
+<div id="content">
+
+<h1>Games we Like to Make Predictions On</h1>
+
+<ul>
+$for game in games:
+    <li><p class="game">On $game.gametime.strftime('%A, %b %d at %H:%M') <a href="/$game.ahref/">$game.hometeam hosts $game.awayteam</a>.
+    $if game.done:
+        The game is over. $game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)
+    $else:
+        Get your predictions in!
+    </p>
+    </li>
+</ul>
+
+</div>
+
+</body>
+</html>

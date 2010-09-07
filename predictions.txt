@@ -1,0 +1,8 @@
+-*- outline -*-
+
+* 2010-09-03 08:37 - Designing of the predicitons site
+
+URLs:
+/osu_vs_marshall/predictions/
+/osu_vs_marshall/predictions/mark_kelly/
+/osu_vs_marshall/predictions/jon_miller/

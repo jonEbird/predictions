@@ -1,0 +1,199 @@
+
+/*
+   general
+   --------------- */
+
+* { padding: 0; margin: 0; }
+* { font-family: sans-serif, arial, "lucida console" }
+body { font-family: verdana, arial, sans-serif; font-size:120%; margin:1em 2em; background:white;}
+a:link { color: black; }
+a:visited { color: black; }
+a:hover { color: red; }
+p code { font-family: monospace }
+li { list-style-type: none; line-height: 1em;}
+div#clearinghouse {clear: both;}
+
+/*
+   predictions
+   --------------- */
+
+p.person_heading { color: white; } /* match background... there for space and not seen */
+p.team1_heading, p.team2_heading  { float: left; font-size: 2em; line-height: .8em;}
+
+p.person_heading, p.person { float: left; width: 40%; font-size: 1.5em; }
+p.team1  { float: left; font-size: 1em; }
+p.team2  { float: left; font-size: 1em; }
+
+li { margin: 1em 0; }
+
+p.team1_heading, p.team2_heading, p.team1, p.team2 { width: 15%; text-align: center;}
+p.delta { text-align: left; color: red; font-size: 1.5em; margin: 0 0 0 1em; }
+
+p.person a { text-decoration: none; }
+span.name { font-size: 1.2em; color: red; }
+
+li:after {
+    content: ".";
+    display: block;
+    height: 0;
+    clear: both;
+    visibility: hidden;
+}
+div#content { width: 80%; margin: 0 0 0 3em; }
+
+/* ---------------------------------------------------------------------- */
+
+/*
+   general
+   --------------- 
+
+* { padding: 0; margin: 0; }
+* { font-family: sans-serif, arial, "lucida console" }
+body { font-family: verdana, arial, sans-serif; font-size:120%; margin:1em 2em; background:white;}
+a:link { color: black; }
+a:visited { color: black; }
+a:hover { color: red; }
+p code { font-family: monospace }
+li { list-style-type: none; line-height: 1em;}
+div#clearinghouse {clear: both;}
+
+h1 { 
+    font-size:2em;
+    word-spacing: .01em;
+    letter-spacing: -.05em;
+}
+h2 {
+    font-size:1.5em;
+    word-spacing: .01em;
+    letter-spacing: -.05em;
+    padding: 0 0 0 1em;
+    color: #55A62A;
+}
+
+/*
+   header
+   --------------- 
+div#header {
+/*     border:1px solid red; 
+    float:right;
+    margin: 0 1em;
+}
+
+/*
+   progressbar
+   --------------- 
+div#progressbar {
+    position: absolute;
+/*     border:1px solid red; 
+    margin:0 20px 0 0;
+    width: 20px;
+    height: 100%;
+}
+div#progressbar ul li.completed {
+    background-image:url(static/dot_filled-mid.png);
+    background-repeat:no-repeat;
+    color:white; /* same as page background 
+}
+div#progressbar ul li.incomplete {
+    background-image:url(static/dot_empty-mid.png);
+    background-repeat:no-repeat;
+    color:white; /* same as page background 
+}
+
+/*
+   content
+   --------------- 
+div#content {
+/*     border:1px dashed black; 
+    margin: 10px 0 0 25px;
+    padding: 2px;
+    width: 95%;
+    height: 100%;
+/*     float: left; 
+}
+/*
+   statement
+   --------------- 
+div#statement {margin-bottom:.2em;} /* border:1px solid blue; 
+div#statement h1 { 
+    text-transform: capitalize;
+    text-align: center;
+    color: #329000;
+}
+/*
+   objectives
+   --------------- 
+div#objectives {display: block; margin:1em 0; } /* border:1px solid green; 
+p.obj_num, p.alt_score {
+    float:left;
+    text-weight: bold;
+    text-align: center;
+/*     border: 1px solid red; 
+    width: 1.5em;
+    margin: 0px;
+    font-size: 1.3em;
+    color: #329000;
+}
+p.obj_text, p.alt_title {
+    margin: 0 0 0 3em;
+/*     border: 1px solid orange; 
+    font-size: 1em;
+    padding-left: .2em;
+}
+div#objectives li:before {
+    content: ".";
+    display: block;
+    height: 0;
+    clear: both;
+    visibility: hidden;
+}
+
+div#objectives ul li, div#alternatives ul li {
+    margin: .3em 0 0 0;
+}
+
+/*
+   alternatives
+   --------------- 
+div#alternatives {display: block; margin:1em 0;} /* border:1px solid purple; 
+/* p.alt_score {} 
+div#alt_wRisk { /* container for alt_title and 
+}
+
+/* p.alt_title {} 
+li p.alt_risk_text {
+    margin: 0 0 0 3.5em;
+    float:left;
+    font-style: italic; 
+    font-size: .8em;
+/*     border: 1px solid red; 
+    width: 70%;
+}
+li p.alt_risk_rank {
+    margin: 0 0 0 3em;
+/*     border: 1px solid orange; 
+}
+
+div#alternatives p.alt_risk_text { 
+    text-indent:1em;
+}
+
+div#alternatives ul li:before, div#alternatives ul:after {
+    content: ".";
+    display: block;
+    height: 0;
+    clear: both;
+    visibility: hidden;
+}
+
+
+/*
+   comments
+   --------------- 
+div#comments {
+    margin:1em 0;
+/*     border:1px solid red; 
+    clear: both;
+}
+
+*/

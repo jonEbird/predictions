@@ -1,0 +1,51 @@
+$def with (predictions, game, undecided)
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>Predictions on the $game.hometeam vs. $game.awayteam Game</title>
+<link type="text/css" rel="stylesheet" href="/static/style.css" media="all">
+<!-- http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js -->
+<!-- <script type="text/javascript" src="/static/jquery.min.js"></script> -->
+</head>
+<body>
+
+<h1>Predictions on the $game.hometeam vs. $game.awayteam Game</h1>
+
+<div id="content">
+<p><a href="/">Back to the games</a></p>
+<ul>
+  <li>
+$if game.done:
+    <p class="person_heading">.</p>
+    <p class="team1_heading">$game.hometeam ($game.hscore)</p>
+    <p class="team2_heading">$game.awayteam ($game.ascore)</p>
+    <p class="team2_heading">Off by...</p>
+$else:
+    <p class="person_heading">.</p>
+    <p class="team1_heading">$game.hometeam</p>
+    <p class="team2_heading">$game.awayteam</p>
+  </li>
+$for p in predictions:
+    <li>
+    <p class="person"><a href="$p.person.name/">$p.person.name.split()[0] &quot;<i>$p.person.nickname</i>&quot; $p.person.name.split()[1]</a></p>
+    $if game.showpredictions:
+        <p class="team1">$p.home</p>
+        <p class="team2">$p.away</p>
+    $else:
+        <p class="team1">LOCKED-IN</p>
+        <p class="team2">LOCKED-IN</p>
+    $if game.done:
+        <p class="delta">$p.delta</p>
+    </li>
+$for p in undecided:
+    <li>
+      <p class="person"><a href="$p.name/">$p.name.split()[0] &quot;<i>$p.nickname</i>&quot; $p.name.split()[1]</a></p>
+      <p class="team1">??</p>
+      <p class="team2">??</p>
+</ul>
+
+</div>
+
+</body>
+</html>
