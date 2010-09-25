@@ -3,48 +3,9 @@
 import os, sys, datetime
 import web
 from web import form
-from elixir import *
-
-#-Database-----------------------------------------
-
-metadata.bind = 'sqlite:///predictions.sqlite'
-metadata.bind.echo = False
-
-class Game(Entity):
-    using_options(tablename='games')
-    hometeam    = Field(String(30))
-    awayteam    = Field(String(30))
-    hscore      = Field(Integer)
-    ascore      = Field(Integer)
-    gametime    = Field(DateTime)
-    predictions = OneToMany('Predictions')
-
-    def __repr__(self):
-        return '<Game %s vs. %s on %s>' % (self.hometeam, self.awayteam, self.gametime)
-
-class Predictions(Entity):
-    using_options(tablename='predictions')
-    home   = Field(Integer)
-    away   = Field(Integer)
-    dt     = Field(DateTime)
-    person = ManyToOne('Person')
-    game   = ManyToOne('Game')
-
-    def __repr__(self):
-        return '<Prediction by %s for the %s game>' % (self.person.name, self.game)
-
-class Person(Entity):
-    using_options(tablename='people')
-    name        = Field(String(60))
-    nickname    = Field(String(60))
-    email       = Field(String(100))
-    password    = Field(String(60))
-    predictions = OneToMany('Predictions')
-
-    def __repr__(self):
-        return '<Person %s>' % self.name
-
-setup_all(True)
+from model import *
+from googlevoice import Voice
+from googlevoice.util import input
 
 #-Web----------------------------------------------
 
@@ -56,6 +17,50 @@ urls = (
     '/creategame/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)', 'CreategameURL',
 )
 render = web.template.render('templates/')
+
+def sms_message(home_vs_away):
+    try:
+        hometeam, awayteam = home_vs_away.split('_vs_')
+        game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+        game.done = (game.hscore != -1)
+
+        predictions = game.predictions
+        for i in range(len(predictions)):
+            p = predictions[i]
+            p.delta = abs(game.hscore - p.home) + abs(game.ascore - p.away)
+            predictions[i] = p
+        predictions.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
+        winner = predictions[0]
+        ties = [ pdt.person.name for pdt in predictions if pdt.delta == winner.delta ]
+
+        voice = Voice()
+        voice.login()
+
+        for pdt in predictions:
+            person = pdt.person
+#             if person.name != "Jon Miller":
+#                 continue
+
+            if len(ties) > 1:
+                if person.name in ties:
+                    text = 'Lucky SOB. You and %s win coffee by tying at being %d off!' % (' & '.join([ o for o in ties if o != person.name]), winner.delta)
+                else:
+                    text = 'A tie! %s win coffee being %d off. You were %d off, loser.' % (' & '.join(ties), winner.delta, pdt.delta)
+            else:
+                if person == winner.person:
+                    text = 'Lucky SOB, you win coffee by being off by %d!' % (pdt.delta)
+                else:
+                    text = '%s wins coffee being %d off. You were %d off, loser.' % (winner.person.name, winner.delta, pdt.delta)
+            text += ' http://jonebird.com:8080/%s/' % (home_vs_away)
+
+            voice.send_sms(pdt.person.phonenumber, text)
+
+        voice.logout()
+
+    except (Exception), e:
+        raise e
+        #print 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
+    
 
 class GamesURL:
     def GET(self):
@@ -170,6 +175,10 @@ class FinalscoreURL:
                 g.hscore = int(getattr(i,hometeam))
                 g.ascore = int(getattr(i,awayteam))
                 session.commit()
+
+                # Send out a SMS message about the winners
+                sms_message(game)
+
                 return web.seeother('/%s/' % game)
 
             else:
@@ -246,7 +255,7 @@ if __name__ == "__main__":
     """ Creating some games via URL. E.g.
     /creategame/OSU/Miami/2010/9/11/15/40?auth=bingo
     """
-    if len(sys.argv) > 1 and sys.argv[1] == "dbinit":
+    if len(sys.argv) > 1 and sys.argv[1] in ["dbinit", "initdb"]:
         metadata.bind.echo = True
         create_all()
         osu_vs_marshall = Game(hometeam='OSU', hscore=45, ascore=7, awayteam='Marshall', gametime=datetime.datetime(2010, 9, 2, 19, 30))

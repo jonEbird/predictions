@@ -6,3 +6,9 @@ URLs:
 /osu_vs_marshall/predictions/
 /osu_vs_marshall/predictions/mark_kelly/
 /osu_vs_marshall/predictions/jon_miller/
+* 2010-09-25 13:16 - Altering the sqlite DB
+
+sqlite3 predictions.sqlite
+alter table people add column phonenumber VARCHAR(15);
+
+That's it!
