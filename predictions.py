@@ -75,7 +75,8 @@ class GamesURL:
             game = games[i]
             # first, it is over?
             td = now - game.gametime
-            game.done = (td.seconds + td.days * 24 * 3600) > 14400 # 4hours past gametime?
+            #game.done = (td.seconds + td.days * 24 * 3600) > 14400 # 4hours past gametime?
+            game.done = (game.hscore != -1)
             # Now help out the templating engine
             game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
             games[i] = game
@@ -84,12 +85,15 @@ class GamesURL:
             if not game.done:
                 continue
             for pdt in game.predictions:
-                delta = abs(game.hscore - pdt.home) + abs(game.ascore - pdt.away)
-                name = pdt.person.name
-                person = people[pindex[name]]
-                person.tot_games += 1
-                person.tot_delta += delta
-                people[pindex[name]] = person
+                try:
+                    delta = abs(game.hscore - pdt.home) + abs(game.ascore - pdt.away)
+                    name = pdt.person.name
+                    person = people[pindex[name]]
+                    person.tot_games += 1
+                    person.tot_delta += delta
+                    people[pindex[name]] = person
+                except (TypeError), e:
+                    continue
                 
         people.sort(cmp=lambda a, b: cmp(a.tot_delta, b.tot_delta))
         #charts.append("""http://chart.apis.google.com/chart?chxl=0:|%s&chxr=0,0,%d&chds=0,%d&chxt=y,x&chbh=a,5&chs=300x225&cht=bhg&chco=A2C180&chd=t:%s&chtt=Total+Points+Off+in+All+Games&chts=EE2525,11.5""" % ( "|".join([ p.name.replace(' ', '+') for p in people.__reversed__()]), people[-1].tot_delta, people[-1].tot_delta, ','.join([ ('%d' % p.tot_delta) for p in people ]) ))
@@ -105,7 +109,8 @@ class PredictionsURL:
             game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
             predictions = game.predictions
             td = datetime.datetime.now() - game.gametime
-            if (td.seconds + td.days * 24 * 3600) > 14400: # 4hours past gametime?
+            #if (td.seconds + td.days * 24 * 3600) > 14400: # 4hours past gametime?
+            if (game.hscore != -1):
                 game.done = True
                 for i in range(len(predictions)):
                     p = predictions[i]
@@ -132,7 +137,7 @@ class CreategameURL:
         gametime = datetime.datetime(int(year), int(mon), int(day), int(hour), int(min))
         #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, input.auth)
         if input.auth == "bingo":
-            nextgame = Game(hometeam=home, awayteam=away, gametime=gametime)
+            nextgame = Game(hometeam=home, awayteam=away, gametime=gametime, hscore=-1, ascore=-1)
             session.commit()
             print 'Okay. It\'s %s vs. %s on %s.\n/%s_vs_%s/' % (home, away, gametime, home, away)
         else:

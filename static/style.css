@@ -29,6 +29,8 @@ li { margin: 1em 0; }
 p.team1_heading, p.team2_heading, p.team1, p.team2 { width: 15%; text-align: center;}
 p.delta { text-align: left; color: red; font-size: 1.5em; margin: 0 0 0 1em; }
 
+p.team1, p.team2, p.delta { font-family: "Comic Sans MS", cursive; }
+
 p.person a { text-decoration: none; }
 span.name { font-size: 1.2em; color: red; }
 
