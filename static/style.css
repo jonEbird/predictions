@@ -41,6 +41,10 @@ li:after {
 }
 div#content { width: 80%; margin: 0 0 0 3em; }
 
+h1.inset, h2.inset, h3.inset { text-indent:-.5em; }
+
+ul#stats_text { float: left; margin: 0 3em 0 0; }
+
 /* ---------------------------------------------------------------------- */
 
 /*

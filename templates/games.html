@@ -1,4 +1,4 @@
-$def with (games)
+$def with (games, people, charts)
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
     "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -12,7 +12,7 @@ $def with (games)
 
 <div id="content">
 
-<h1>Games we Like to Make Predictions On</h1>
+<h1 class="inset">Games We Like to Make Predictions On</h1>
 
 <ul>
 $for game in games:
@@ -25,6 +25,12 @@ $for game in games:
     </li>
 </ul>
 
+<h3 class="inset">Season Stats</h3>
+<ul id="stats_text">
+$for person in people:
+    <li><p> $person.name has been off by <b>$person.tot_delta</b> in the course of $person.tot_games games.</p></li>
+</ul>
+<img src="$:charts[0]" width="300" height="225" alt="Season Stats" />
 </div>
 
 </body>

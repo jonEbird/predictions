@@ -51,15 +51,26 @@ setup_all(True)
 urls = (
     '/', 'GamesURL',
     '/([^/]*)/', 'PredictionsURL',
+    '/([^/]*)/final', 'FinalscoreURL',
     '/([^/]*)/([^/]*)/', 'PredictURL',
-    '/creategame/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)', 'CreategameURL'
+    '/creategame/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)', 'CreategameURL',
 )
 render = web.template.render('templates/')
 
 class GamesURL:
     def GET(self):
         now = datetime.datetime.now()
-        games = Game.query.all()
+        games = Game.query.order_by(Game.gametime).all()
+        charts = []
+        people = Person.query.all()
+        pindex = dict([ (person.name, i) for i, person in enumerate(people) ])
+        # some stats initialization
+        for name, i in pindex.iteritems():
+            person = people[i]
+            person.tot_games = 0
+            person.tot_delta = 0
+            people[i] = person
+
         for i in range(len(games)):
             game = games[i]
             # first, it is over?
@@ -68,7 +79,24 @@ class GamesURL:
             # Now help out the templating engine
             game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
             games[i] = game
-        print render.games(games)
+
+            # Update stats on completed games
+            if not game.done:
+                continue
+            for pdt in game.predictions:
+                delta = abs(game.hscore - pdt.home) + abs(game.ascore - pdt.away)
+                name = pdt.person.name
+                person = people[pindex[name]]
+                person.tot_games += 1
+                person.tot_delta += delta
+                people[pindex[name]] = person
+                
+        people.sort(cmp=lambda a, b: cmp(a.tot_delta, b.tot_delta))
+        #charts.append("""http://chart.apis.google.com/chart?chxl=0:|%s&chxr=0,0,%d&chds=0,%d&chxt=y,x&chbh=a,5&chs=300x225&cht=bhg&chco=A2C180&chd=t:%s&chtt=Total+Points+Off+in+All+Games&chts=EE2525,11.5""" % ( "|".join([ p.name.replace(' ', '+') for p in people.__reversed__()]), people[-1].tot_delta, people[-1].tot_delta, ','.join([ ('%d' % p.tot_delta) for p in people ]) ))
+
+        charts.append("""http://chart.apis.google.com/chart?chxl=0:|%s&chxt=y,x&chxr=1,0,%d&chds=0,%d&chbh=a,5&chs=300x225&cht=bhg&chco=A2C180&chd=t:%s&chtt=Total+Points+Off+in+All+Games&chts=EE2525,11.5""" % ("|".join([ p.name.replace(' ', '+') for p in people.__reversed__()]), people[-1].tot_delta, people[-1].tot_delta, ','.join([ ('%d' % p.tot_delta) for p in people ])) )
+
+        print render.games(games, people, charts)
 
 class PredictionsURL:
     def GET(self, game):
@@ -88,14 +116,14 @@ class PredictionsURL:
                 game.done = False
             
             # FIXME: Don't really like this query but it's working...
-            undecided = Person.query.filter(~Person.name.in_([ p.person.name for p in predictions ])).all()
+            undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
 
             # Now, you can only see the predictions when all are in or the game has started.
             game.showpredictions = (datetime.datetime.now() > game.gametime) or not undecided
 
             print render.predictions(game.predictions, game, undecided)
         except (Exception), e:
-            print 'Sorry. You probably are looking for another game?'
+            print 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
 
 class CreategameURL:
     def GET(self, home, away, year, mon, day, hour, min):
@@ -110,6 +138,47 @@ class CreategameURL:
         else:
             print 'Sorry, can not help you.'
 
+class FinalscoreURL:
+    def GET(self, game):
+        try:
+            hometeam, awayteam = game.split('_vs_')
+            g = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+
+            myform = form.Form(
+                form.Textbox(hometeam, value=""),
+                form.Textbox(awayteam, value=""),
+                form.Password('password', value=""),
+                )
+
+            print render.finalscore(hometeam, awayteam, myform, msg='')
+
+        except (Exception), e:
+            print 'Sorry. You\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
+
+    def POST(self, game):
+        try:
+            i = web.input()
+            hometeam, awayteam = game.split('_vs_')
+            g = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+            
+            if i.password == "bingo":
+                g.hscore = int(getattr(i,hometeam))
+                g.ascore = int(getattr(i,awayteam))
+                session.commit()
+                return web.seeother('/%s/' % game)
+
+            else:
+                myform = form.Form(
+                    form.Textbox(hometeam, value=getattr(i,hometeam)),
+                    form.Textbox(awayteam, value=getattr(i,awayteam)),
+                    form.Password('password', value=""),
+                    )
+            
+                print render.predict(hometeam, awayteam, myform, msg='Wrong password. Try again.')
+                return
+        
+        except (Exception), e:
+            print 'Seriously, you\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
 
 class PredictURL:
     def GET(self, game, person):
@@ -205,6 +274,14 @@ if __name__ == "__main__":
         Predictions(home=35, away=14, dt=datetime.datetime(2010,9,2,12,0), person=lb, game=osu_vs_marshall)
 
         session.commit()
+        sys.exit(0)
+
+    elif len(sys.argv) > 1 and sys.argv[1] == "cheat":
+        g1 = Game.query.all()[-1]
+
+        for ppt in g1.predictions:
+            print '%s is predicting %d - %d' % (ppt.person.name, ppt.home, ppt.away)
+
         sys.exit(0)
 
     web.run(urls, globals())
