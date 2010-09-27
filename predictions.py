@@ -7,6 +7,9 @@ from model import *
 from googlevoice import Voice
 from googlevoice.util import input
 
+# Defaults
+mpass = 'bingo'
+
 #-Web----------------------------------------------
 
 urls = (
@@ -18,7 +21,7 @@ urls = (
 )
 render = web.template.render('templates/')
 
-def sms_message(home_vs_away):
+def sms_gameresults(home_vs_away):
     try:
         hometeam, awayteam = home_vs_away.split('_vs_')
         game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
@@ -54,6 +57,7 @@ def sms_message(home_vs_away):
             text += ' http://jonebird.com:8080/%s/' % (home_vs_away)
 
             voice.send_sms(pdt.person.phonenumber, text)
+            #print 'voice.send_sms(%s, %s)' % (pdt.person.phonenumber, text)
 
         voice.logout()
 
@@ -137,16 +141,17 @@ class PredictionsURL:
 
 class CreategameURL:
     def GET(self, home, away, year, mon, day, hour, min):
-        """Example URL would be /creategame/OSU/Marshall/2010/9/2/19/30?auth=bingo"""
+        """Example URL would be /creategame/OSU/Marshall/2010/9/2/19/30?auth=<password>"""
         input = web.input(auth="bogus")
         gametime = datetime.datetime(int(year), int(mon), int(day), int(hour), int(min))
         #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, input.auth)
-        if input.auth == "bingo":
+        if input.auth == mpass:
             nextgame = Game(hometeam=home, awayteam=away, gametime=gametime, hscore=-1, ascore=-1)
             session.commit()
             print 'Okay. It\'s %s vs. %s on %s.\n/%s_vs_%s/' % (home, away, gametime, home, away)
         else:
             print 'Sorry, can not help you.'
+        return web.seeother('/%s_vs_%s/' % (home, away))
 
 class FinalscoreURL:
     def GET(self, game):
@@ -171,13 +176,13 @@ class FinalscoreURL:
             hometeam, awayteam = game.split('_vs_')
             g = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
             
-            if i.password == "bingo":
+            if i.password == mpass:
                 g.hscore = int(getattr(i,hometeam))
                 g.ascore = int(getattr(i,awayteam))
                 session.commit()
 
                 # Send out a SMS message about the winners
-                sms_message(game)
+                sms_gameresults(game)
 
                 return web.seeother('/%s/' % game)
 
@@ -226,7 +231,7 @@ class PredictURL:
         if not undecided:
             return web.seeother('/%s/' % game)
 
-        if p.password == i.password or i.password == "bingo":
+        if p.password == i.password or i.password == mpass:
             # Is there already a prediction out there for this?
             q = Predictions.query.filter_by(person=p).filter_by(game=g)
             if q.count():
@@ -252,51 +257,11 @@ web.webapi.internalerror = web.debugerror
 #app = web.application(urls, globals())
 
 if __name__ == "__main__":
-    """ Creating some games via URL. E.g.
-    /creategame/OSU/Miami/2010/9/11/15/40?auth=bingo
-    """
-    if len(sys.argv) > 1 and sys.argv[1] in ["dbinit", "initdb"]:
-        metadata.bind.echo = True
-        create_all()
-        osu_vs_marshall = Game(hometeam='OSU', hscore=45, ascore=7, awayteam='Marshall', gametime=datetime.datetime(2010, 9, 2, 19, 30))
 
-        jm = Person(name='Jon Miller', nickname='jonEbird', password='bingo')
-        Predictions(home=35, away=9, dt=datetime.datetime(2010,9,2,12,0), person=jm, game=osu_vs_marshall)
-
-        ck = Person(name='Cherina Kesuma', nickname='Cherrybum', password='bingo')
-        Predictions(home=42, away=7, dt=datetime.datetime(2010,9,2,12,0), person=ck, game=osu_vs_marshall)
-
-        mn = Person(name='Mike Nardone', nickname='Italian Stallion', password='grip')
-        Predictions(home=37, away=16, dt=datetime.datetime(2010,9,2,12,0), person=mn, game=osu_vs_marshall)
-
-        tb = Person(name='Todd Bloom', nickname='Sweeney Todd', password='hellyeah')
-        Predictions(home=30, away=10, dt=datetime.datetime(2010,9,2,12,0), person=tb, game=osu_vs_marshall)
-
-        ps = Person(name='Patrick Shuff', nickname='Intern', password='michelle')
-        Predictions(home=45, away=6, dt=datetime.datetime(2010,9,2,12,0), person=ps, game=osu_vs_marshall)
-
-        jh = Person(name='Joe Huffner', nickname='Hot Stuff', password='sausage')
-        Predictions(home=35, away=14, dt=datetime.datetime(2010,9,2,12,0), person=jh, game=osu_vs_marshall)
-
-        th = Person(name='Travis Hines', nickname='The Real Deal', password='bigred')
-        Predictions(home=45, away=13, dt=datetime.datetime(2010,9,2,12,0), person=th, game=osu_vs_marshall)
-
-        mk = Person(name='Mark Kelly', nickname='The Hammer', password='thatswhatIsaid')
-        Predictions(home=35, away=14, dt=datetime.datetime(2010,9,2,12,0), person=mk, game=osu_vs_marshall)
-
-        lb = Person(name='Lilian Bloom', nickname='Flower Bed', password='ilovetoddscock')
-        Predictions(home=35, away=14, dt=datetime.datetime(2010,9,2,12,0), person=lb, game=osu_vs_marshall)
-
-        session.commit()
-        sys.exit(0)
-
-    elif len(sys.argv) > 1 and sys.argv[1] == "cheat":
-        g1 = Game.query.all()[-1]
-
-        for ppt in g1.predictions:
-            print '%s is predicting %d - %d' % (ppt.person.name, ppt.home, ppt.away)
-
-        sys.exit(0)
+    try:
+        mpass = open('password.txt', 'r').readline().strip()
+    except (IOError), e:
+        print """WARNING: Guess we're sticking with the default password of 'bingo'. Please add a one-liner "password.txt" file."""
 
     web.run(urls, globals())
     #app.run()
