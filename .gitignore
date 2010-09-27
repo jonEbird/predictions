@@ -1,2 +1,4 @@
 *.pyc
 *.sqlite
+password.txt
+.emacs.desktop*

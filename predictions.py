@@ -263,5 +263,18 @@ if __name__ == "__main__":
     except (IOError), e:
         print """WARNING: Guess we're sticking with the default password of 'bingo'. Please add a one-liner "password.txt" file."""
 
+    if (len(sys.argv) > 1 and sys.argv[1] in ['adduser', 'newuser', 'useradd']):
+        print "Adding a new user. I will prompt you for the necessary intel."
+        name        = raw_input("  Full Name: ")
+        nickname    = raw_input("  Nickame: ")
+        email       = raw_input("  Email: ")
+        phonenumber = raw_input("  Phone#: ")
+        password    = raw_input("  Password: ")
+
+        newuser = Person(name=name, nickname=nickname, email=email, phonenumber=phonenumber, password=password)
+        print 'Added.'
+        session.commit()
+        sys.exit(0)
+
     web.run(urls, globals())
     #app.run()
