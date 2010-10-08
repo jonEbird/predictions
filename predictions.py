@@ -2,13 +2,15 @@
 
 import os, sys, datetime
 import web
-from web import form
 from model import *
+import smtplib, urllib
+from email.mime.text import MIMEText
 from googlevoice import Voice
 from googlevoice.util import input
 
 # Defaults
 mpass = 'bingo'
+SMTP_FROM = 'jon@jonebird.com'
 
 #-Web----------------------------------------------
 
@@ -20,6 +22,64 @@ urls = (
     '/creategame/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)', 'CreategameURL',
 )
 render = web.template.render('templates/')
+
+def email_reminder(home_vs_away):
+    """Email the whole group with the predictions on the game. Do not call this if all of the predictions are not in yet."""
+    try:
+        hometeam, awayteam = home_vs_away.split('_vs_')
+        game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+        predictions = game.predictions
+
+        # FIXME: Don't really like this query but it's working...
+        undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
+
+        for person in undecided:
+            body =  'Need to get your prediction in for the %s vs. %s game.\n\n' % (game.hometeam, game.awayteam)
+            body += 'Go to http://jonebird.com:8080/%s/%s/' % (home_vs_away, urllib.quote(person.name))
+            body += '\n\nAnd good luck.'
+
+            me = SMTP_FROM
+            you = person.email # 'jonEbird@gmail.com'
+
+            msg = MIMEText(body)
+            msg['Subject'] = 'What is your Prediction on the %s vs. %s Game?' % (game.hometeam, game.awayteam)
+            msg['From'] = me
+            msg['To'] = you
+
+            s = smtplib.SMTP()
+            s.connect()
+            s.sendmail(me, [you], msg.as_string())
+            s.quit()
+
+    except (Exception), e:
+        print 'Sorry. Something happened while trying to email: %s' % (str(e))
+
+def email_predictions(home_vs_away):
+    """Email the whole group with the predictions on the game. Do not call this if all of the predictions are not in yet."""
+    try:
+        hometeam, awayteam = home_vs_away.split('_vs_')
+        game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+        predictions = game.predictions
+
+        body = 'Predictions are in!\n\n%s - %s\n' % (game.hometeam, game.awayteam)
+        body += '\n'.join([ '%-2d - %-2d by %s' % (p.home, p.away, p.person.name) for p in predictions ])
+        body += '\n\nGood luck, folks.'
+
+        me = SMTP_FROM
+        you = 'jonEbird@gmail.com'
+
+        msg = MIMEText(body)
+        msg['Subject'] = 'Predictions on the %s vs. %s Game' % (game.hometeam, game.awayteam)
+        msg['From'] = me
+        msg['Bcc'] = ', '.join([ pdt.person.email for pdt in predictions ]) #you
+
+        s = smtplib.SMTP()
+        s.connect()
+        s.sendmail(me, [you], msg.as_string())
+        s.quit()
+
+    except (Exception), e:
+        print 'Sorry. Something happened while trying to email: %s' % (str(e))
 
 def sms_gameresults(home_vs_away):
     try:
@@ -56,8 +116,8 @@ def sms_gameresults(home_vs_away):
                     text = '%s wins coffee being %d off. You were %d off, loser.' % (winner.person.name, winner.delta, pdt.delta)
             text += ' http://jonebird.com:8080/%s/' % (home_vs_away)
 
-            voice.send_sms(pdt.person.phonenumber, text)
-            #print 'voice.send_sms(%s, %s)' % (pdt.person.phonenumber, text)
+            #voice.send_sms(pdt.person.phonenumber, text)
+            print 'voice.send_sms(%s, %s)' % (pdt.person.phonenumber, text)
 
         voice.logout()
 
@@ -112,12 +172,12 @@ class GamesURL:
         print render.games(games, people, charts)
 
 class PredictionsURL:
-    def GET(self, game):
+    def GET(self, home_vs_away):
         try:
-            hometeam, awayteam = game.split('_vs_')
+            hometeam, awayteam = home_vs_away.split('_vs_')
             game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
             predictions = game.predictions
-            td = datetime.datetime.now() - game.gametime
+            #td = datetime.datetime.now() - game.gametime
             #if (td.seconds + td.days * 24 * 3600) > 14400: # 4hours past gametime?
             if (game.hscore != -1):
                 game.done = True
@@ -134,6 +194,10 @@ class PredictionsURL:
 
             # Now, you can only see the predictions when all are in or the game has started.
             game.showpredictions = (datetime.datetime.now() > game.gametime) or not undecided
+
+            # Before we print, email the predictions if you can...
+            if game.showpredictions:
+                email_predictions(home_vs_away)
 
             print render.predictions(game.predictions, game, undecided)
         except (Exception), e:
@@ -159,10 +223,10 @@ class FinalscoreURL:
             hometeam, awayteam = game.split('_vs_')
             g = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
 
-            myform = form.Form(
-                form.Textbox(hometeam, value=""),
-                form.Textbox(awayteam, value=""),
-                form.Password('password', value=""),
+            myform = web.form.Form(
+                web.form.Textbox(hometeam, value=""),
+                web.form.Textbox(awayteam, value=""),
+                web.form.Password('password', value=""),
                 )
 
             print render.finalscore(hometeam, awayteam, myform, msg='')
@@ -187,10 +251,10 @@ class FinalscoreURL:
                 return web.seeother('/%s/' % game)
 
             else:
-                myform = form.Form(
-                    form.Textbox(hometeam, value=getattr(i,hometeam)),
-                    form.Textbox(awayteam, value=getattr(i,awayteam)),
-                    form.Password('password', value=""),
+                myform = web.form.Form(
+                    web.form.Textbox(hometeam, value=getattr(i,hometeam)),
+                    web.form.Textbox(awayteam, value=getattr(i,awayteam)),
+                    web.form.Password('password', value=""),
                     )
             
                 print render.predict(hometeam, awayteam, myform, msg='Wrong password. Try again.')
@@ -206,10 +270,10 @@ class PredictURL:
             hometeam, awayteam = game.split('_vs_')
             p = Person.query.filter_by(name=person).one()
 
-            myform = form.Form(
-                form.Textbox(hometeam, value=""),
-                form.Textbox(awayteam, value=""),
-                form.Password('password', value=""),
+            myform = web.form.Form(
+                web.form.Textbox(hometeam, value=""),
+                web.form.Textbox(awayteam, value=""),
+                web.form.Password('password', value=""),
                 )
 
             print render.predict(hometeam, awayteam, p, myform, msg='')
@@ -245,10 +309,10 @@ class PredictURL:
             session.commit()
             return web.seeother('/%s/' % game)
         else:            
-            myform = form.Form(
-                form.Textbox(hometeam, value=getattr(i,hometeam)),
-                form.Textbox(awayteam, value=getattr(i,awayteam)),
-                form.Password('password', value=""),
+            myform = web.form.Form(
+                web.form.Textbox(hometeam, value=getattr(i,hometeam)),
+                web.form.Textbox(awayteam, value=getattr(i,awayteam)),
+                web.form.Password('password', value=""),
                 )
             
             print render.predict(hometeam, awayteam, p, myform, msg='Wrong password. Try again.')
@@ -274,6 +338,10 @@ if __name__ == "__main__":
         newuser = Person(name=name, nickname=nickname, email=email, phonenumber=phonenumber, password=password)
         print 'Added.'
         session.commit()
+        sys.exit(0)
+
+    elif (len(sys.argv) == 3 and sys.argv[1] in ['email', 'remind', 'nudge']):
+        email_reminder(sys.argv[2])
         sys.exit(0)
 
     web.run(urls, globals())
