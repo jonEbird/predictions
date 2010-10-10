@@ -10,7 +10,9 @@ from googlevoice.util import input
 
 # Defaults
 mpass = 'bingo'
-SMTP_FROM = 'jon@jonebird.com'
+mode  = 'dev'
+EMAILADDR = 'jon@jonebird.com'
+HTTPHOST  = 'jonebird.com:8080'
 
 #-Web----------------------------------------------
 
@@ -23,33 +25,34 @@ urls = (
 )
 render = web.template.render('templates/')
 
-def email_reminder(home_vs_away):
+def email_reminder():
     """Email the whole group with the predictions on the game. Do not call this if all of the predictions are not in yet."""
     try:
-        hometeam, awayteam = home_vs_away.split('_vs_')
-        game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
-        predictions = game.predictions
-
-        # FIXME: Don't really like this query but it's working...
-        undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
-
-        for person in undecided:
-            body =  'Need to get your prediction in for the %s vs. %s game.\n\n' % (game.hometeam, game.awayteam)
-            body += 'Go to http://jonebird.com:8080/%s/%s/' % (home_vs_away, urllib.quote(person.name))
-            body += '\n\nAnd good luck.'
-
-            me = SMTP_FROM
-            you = person.email # 'jonEbird@gmail.com'
-
-            msg = MIMEText(body)
-            msg['Subject'] = 'What is your Prediction on the %s vs. %s Game?' % (game.hometeam, game.awayteam)
-            msg['From'] = me
-            msg['To'] = you
-
-            s = smtplib.SMTP()
-            s.connect()
-            s.sendmail(me, [you], msg.as_string())
-            s.quit()
+        now =  datetime.datetime.now()
+        for game in Game.query.filter(and_(Game.gametime < (now + datetime.timedelta(hours=40)), Game.gametime > now)).all():
+    
+            # FIXME: Don't really like this query but it's working...
+            undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
+    
+            for person in undecided:
+                if mode == 'dev' and person.name != "Jon Miller": continue
+    
+                body =  'Need to get your prediction in for the %s vs. %s game.\n\n' % (game.hometeam, game.awayteam)
+                body += 'Go to http://%s/%s_vs_%s/%s/' % (HTTPHOST, game.hometeam, game.awayteam, urllib.quote(person.name))
+                body += '\n\nAnd good luck.'
+    
+                me = EMAILADDR
+                you = person.email # 'jonEbird@gmail.com'
+    
+                msg = MIMEText(body)
+                msg['Subject'] = 'What is your Prediction on the %s vs. %s Game?' % (game.hometeam, game.awayteam)
+                msg['From'] = me
+                msg['To'] = you
+    
+                s = smtplib.SMTP()
+                s.connect()
+                s.sendmail(me, [you], msg.as_string())
+                s.quit()
 
     except (Exception), e:
         print 'Sorry. Something happened while trying to email: %s' % (str(e))
@@ -65,17 +68,18 @@ def email_predictions(home_vs_away):
         body += '\n'.join([ '%-2d - %-2d by %s' % (p.home, p.away, p.person.name) for p in predictions ])
         body += '\n\nGood luck, folks.'
 
-        me = SMTP_FROM
-        you = 'jonEbird@gmail.com'
-
         msg = MIMEText(body)
         msg['Subject'] = 'Predictions on the %s vs. %s Game' % (game.hometeam, game.awayteam)
-        msg['From'] = me
-        msg['Bcc'] = ', '.join([ pdt.person.email for pdt in predictions ]) #you
+        msg['From'] = EMAILADDR
+        msg['To']   = EMAILADDR
+        if mode == 'dev':
+            bcc = ['jonEbird@gmail.com']
+        else:
+            bcc = (','.join([ pdt.person.email for pdt in predictions ])).split(',')
 
         s = smtplib.SMTP()
         s.connect()
-        s.sendmail(me, [you], msg.as_string())
+        s.sendmail(EMAILADDR, bcc, msg.as_string())
         s.quit()
 
     except (Exception), e:
@@ -101,8 +105,8 @@ def sms_gameresults(home_vs_away):
 
         for pdt in predictions:
             person = pdt.person
-#             if person.name != "Jon Miller":
-#                 continue
+            if mode == 'dev' and person.name != "Jon Miller":
+                continue
 
             if len(ties) > 1:
                 if person.name in ties:
@@ -114,10 +118,10 @@ def sms_gameresults(home_vs_away):
                     text = 'Lucky SOB, you win coffee by being off by %d!' % (pdt.delta)
                 else:
                     text = '%s wins coffee being %d off. You were %d off, loser.' % (winner.person.name, winner.delta, pdt.delta)
-            text += ' http://jonebird.com:8080/%s/' % (home_vs_away)
+            text += ' http://%s/%s/' % (HTTPHOST, home_vs_away)
 
-            #voice.send_sms(pdt.person.phonenumber, text)
-            print 'voice.send_sms(%s, %s)' % (pdt.person.phonenumber, text)
+            voice.send_sms(pdt.person.phonenumber, text)
+            #print 'voice.send_sms("%s", "%s")' % (pdt.person.phonenumber, text)
 
         voice.logout()
 
@@ -194,10 +198,6 @@ class PredictionsURL:
 
             # Now, you can only see the predictions when all are in or the game has started.
             game.showpredictions = (datetime.datetime.now() > game.gametime) or not undecided
-
-            # Before we print, email the predictions if you can...
-            if game.showpredictions:
-                email_predictions(home_vs_away)
 
             print render.predictions(game.predictions, game, undecided)
         except (Exception), e:
@@ -280,34 +280,41 @@ class PredictURL:
         except (Exception), e:
             print 'Sorry. You probably are looking for another game?\n%s' % (str(e))
 
-    def POST(self, game, person):
+    def POST(self, home_vs_away, person):
         i = web.input(auth="bogus")
         p = Person.query.filter_by(name=person).one()
-        hometeam, awayteam = game.split('_vs_')
-        g = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+        hometeam, awayteam = home_vs_away.split('_vs_')
+        game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
 
         # first of all, you can not make predictions when the game is on
-        if datetime.datetime.now() > g.gametime:
-            return web.seeother('/%s/' % game)
+        if datetime.datetime.now() > game.gametime:
+            return web.seeother('/%s/' % home_vs_away)
 
         # also, you can not make a prediction once all of the predictions are in.
-        undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in g.predictions ])).all()
+        undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
         if not undecided:
-            return web.seeother('/%s/' % game)
+            return web.seeother('/%s/' % home_vs_away)
 
         if p.password == i.password or i.password == mpass:
             # Is there already a prediction out there for this?
-            q = Predictions.query.filter_by(person=p).filter_by(game=g)
+            q = Predictions.query.filter_by(person=p).filter_by(game=game)
             if q.count():
                 pp = q.one()
                 pp.home=int(getattr(i,hometeam))
                 pp.away=int(getattr(i,awayteam))
             else:
-                Predictions(home=int(getattr(i,hometeam)), away=int(getattr(i,awayteam)), dt=datetime.datetime.now(), person=p, game=g)
+                Predictions(home=int(getattr(i,hometeam)), away=int(getattr(i,awayteam)), dt=datetime.datetime.now(), person=p, game=game)
 
             # all done here
             session.commit()
-            return web.seeother('/%s/' % game)
+
+            # Last prediction? Time to email the group?
+            undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all() # FIXME (ugly)
+            showpredictions = (datetime.datetime.now() > game.gametime) or not undecided
+            if showpredictions:
+                email_predictions(home_vs_away)
+
+            return web.seeother('/%s/' % home_vs_away)
         else:            
             myform = web.form.Form(
                 web.form.Textbox(hometeam, value=getattr(i,hometeam)),
@@ -327,6 +334,11 @@ if __name__ == "__main__":
     except (IOError), e:
         print """WARNING: Guess we're sticking with the default password of 'bingo'. Please add a one-liner "password.txt" file."""
 
+    try:
+        mode = open('mode.txt', 'r').readline().strip()
+    except (IOError), e:
+        print """WARNING: Guess we'll run in "dev" mode. Please add a one-liner "mode.txt" file."""
+
     if (len(sys.argv) > 1 and sys.argv[1] in ['adduser', 'newuser', 'useradd']):
         print "Adding a new user. I will prompt you for the necessary intel."
         name        = raw_input("  Full Name: ")
@@ -340,8 +352,12 @@ if __name__ == "__main__":
         session.commit()
         sys.exit(0)
 
-    elif (len(sys.argv) == 3 and sys.argv[1] in ['email', 'remind', 'nudge']):
-        email_reminder(sys.argv[2])
+    elif (len(sys.argv) > 1 and sys.argv[1] in ['remind', 'nudge']):
+        email_reminder()
+        sys.exit(0)
+
+    elif (len(sys.argv) == 3 and sys.argv[1] in ['summary']):
+        email_predictions(sys.argv[2])
         sys.exit(0)
 
     web.run(urls, globals())

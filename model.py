@@ -1,4 +1,5 @@
 from elixir import *
+from sqlalchemy import and_
 
 #-Database-----------------------------------------
 
