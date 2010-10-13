@@ -1,22 +1,24 @@
-$def with (hometeam, awayteam, p, myform, msg)
+$def with (game, p, myform, msg)
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
     "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
-<title>$p.name Making a Prediction on the $hometeam vs. $awayteam Game</title>
+<title>$p.name Making a Prediction on the $game.hometeam vs. $game.awayteam Game</title>
 <link type="text/css" rel="stylesheet" href="/static/style.css" media="all">
 <!-- http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js -->
 <!-- <script type="text/javascript" src="/static/jquery.min.js"></script> -->
 </head>
 <body>
 
-<h1>$hometeam vs. $awayteam</h1>
+<h1>$game.hometeam vs. $game.awayteam</h1>
 
 $if msg:
     <h3>$msg</h3>
 
 <div id="content">
-  <p><a href="javascript:history.go(-1);">Nevermind</a></p>
+  <p><a href="../">Nevermind</a></p>
+$if game.odds:
+    <div id="odds">$:game.odds</div>
   <p>So <span class="name">$p.name</span>, time to make a prediction on the upcoming game.</p>
   <form method="post" action="" autocomplete="off">
 $:myform.render()

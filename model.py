@@ -13,6 +13,7 @@ class Game(Entity):
     hscore      = Field(Integer)
     ascore      = Field(Integer)
     gametime    = Field(DateTime)
+    odds        = Field(String)
     predictions = OneToMany('Predictions')
 
     def __repr__(self):
@@ -42,3 +43,14 @@ class Person(Entity):
         return '<Person %s>' % self.name
 
 setup_all(True)
+
+#----------------------------------------------------------------------
+# Helper functions
+
+def getgamebyversus(home_vs_away):
+    try:
+        hometeam, awayteam = home_vs_away.split('_vs_')
+        game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+        return game
+    except (Exception), e:
+        return ''

@@ -3,7 +3,9 @@
 import os, sys, datetime
 import web
 from model import *
-import smtplib, urllib
+from utils.ncaa_odds import *
+import smtplib
+from urllib import quote
 from email.mime.text import MIMEText
 from googlevoice import Voice
 from googlevoice.util import input
@@ -13,6 +15,7 @@ mpass = 'bingo'
 mode  = 'dev'
 EMAILADDR = 'jon@jonebird.com'
 HTTPHOST  = 'jonebird.com:8080'
+if mode == 'dev': HTTPHOST = 'localhost:8080'
 
 #-Web----------------------------------------------
 
@@ -33,16 +36,19 @@ def email_reminder():
     
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
-    
+            
+            GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
             for person in undecided:
                 if mode == 'dev' and person.name != "Jon Miller": continue
     
                 body =  'Need to get your prediction in for the %s vs. %s game.\n\n' % (game.hometeam, game.awayteam)
-                body += 'Go to http://%s/%s_vs_%s/%s/' % (HTTPHOST, game.hometeam, game.awayteam, urllib.quote(person.name))
-                body += '\n\nAnd good luck.'
+                body += 'Go to %s%s/\n\n' % (GAME_URL, quote(person.name))
+                body += 'Todd suggests this site for spread - http://sportsdirect.usatoday.com/odds/usatoday/ncaaf.aspx\n'
+                body += 'But you will already find the odds included on the prediction page for your convenience.\n\n'
+                body += 'And good luck,\nThe Gamemaster.'
     
                 me = EMAILADDR
-                you = person.email # 'jonEbird@gmail.com'
+                you = person.email
     
                 msg = MIMEText(body)
                 msg['Subject'] = 'What is your Prediction on the %s vs. %s Game?' % (game.hometeam, game.awayteam)
@@ -181,6 +187,15 @@ class PredictionsURL:
             hometeam, awayteam = home_vs_away.split('_vs_')
             game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
             predictions = game.predictions
+
+            # Do I need to fetch the odds on the game?
+            #  Shouldn't try to fetch before at least 4 days till game.
+            now = datetime.datetime.now()
+            if (game.gametime - now) < datetime.timedelta(days=4) and not game.odds:
+                odds_html = get_odds(home_vs_away)
+                game.odds = odds_html
+                session.commit()
+
             #td = datetime.datetime.now() - game.gametime
             #if (td.seconds + td.days * 24 * 3600) > 14400: # 4hours past gametime?
             if (game.hscore != -1):
@@ -257,7 +272,7 @@ class FinalscoreURL:
                     web.form.Password('password', value=""),
                     )
             
-                print render.predict(hometeam, awayteam, myform, msg='Wrong password. Try again.')
+                print render.predict(g, myform, msg='Wrong password. Try again.')
                 return
         
         except (Exception), e:
@@ -268,6 +283,7 @@ class PredictURL:
         try:
             #print 'Let\'s see what %s has to say about the %s game.' % (person, game)
             hometeam, awayteam = game.split('_vs_')
+            game = getgamebyversus(game)
             p = Person.query.filter_by(name=person).one()
 
             myform = web.form.Form(
@@ -276,7 +292,7 @@ class PredictURL:
                 web.form.Password('password', value=""),
                 )
 
-            print render.predict(hometeam, awayteam, p, myform, msg='')
+            print render.predict(game, p, myform, msg='')
         except (Exception), e:
             print 'Sorry. You probably are looking for another game?\n%s' % (str(e))
 
@@ -322,7 +338,7 @@ class PredictURL:
                 web.form.Password('password', value=""),
                 )
             
-            print render.predict(hometeam, awayteam, p, myform, msg='Wrong password. Try again.')
+            print render.predict(game, p, myform, msg='Wrong password. Try again.')
 
 web.webapi.internalerror = web.debugerror
 #app = web.application(urls, globals())
