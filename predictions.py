@@ -38,6 +38,31 @@ def email_reminder():
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
             
             GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
+
+            for pdt in game.predictions:
+                person = pdt.person
+                if mode == 'dev' and person.name != "Jon Miller": continue
+                
+                body =  'Thank you for getting your prediction in. You\'re a true fan.\n\n'
+                body += 'As a reminder, you put %s(%d) - %s(%d)\n' % (game.hometeam, pdt.home, game.awayteam, pdt.away)
+                body += 'If you need to update it, you still can at %s%s/\n\n' % (GAME_URL, quote(person.name))
+                body += 'But what I really need from you is to help bug the people who haven\'t put their predictions in yet.\n'
+                body += 'Please go nag:\n  %s\n\n' % (', '.join([ p.name for p in undecided ]))
+                body += 'Thank you,\nThe Gamemaster.'
+
+                me = EMAILADDR
+                you = person.email
+    
+                msg = MIMEText(body)
+                msg['Subject'] = 'Thank you for your prediction on the %s vs. %s Game?' % (game.hometeam, game.awayteam)
+                msg['From'] = me
+                msg['To'] = you
+    
+                s = smtplib.SMTP()
+                s.connect()
+                s.sendmail(me, [you], msg.as_string())
+                s.quit()
+
             for person in undecided:
                 if mode == 'dev' and person.name != "Jon Miller": continue
     

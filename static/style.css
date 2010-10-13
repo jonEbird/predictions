@@ -47,14 +47,15 @@ h1.inset, h2.inset, h3.inset { text-indent:-.5em; }
 
 ul#stats_text { float: left; margin: 0 3em 0 0; }
 
-.small-copy-sans {
+/* .small-copy-sans {
     color:#000000;
-    font-size:11px;
+    font-size:.8em;
     font-weight:normal;
     text-decoration:none;
 }
+*/
 
-div#odds { background:white; }
+div#odds { background:white; font-size:.8em; }
 
 /* ---------------------------------------------------------------------- */
 
