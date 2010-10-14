@@ -4,11 +4,10 @@ import os, sys, datetime
 import web
 from model import *
 from utils.ncaa_odds import *
+from utils.sms import *
 import smtplib
 from urllib import quote
 from email.mime.text import MIMEText
-from googlevoice import Voice
-from googlevoice.util import input
 
 # Defaults
 mpass = 'bingo'
@@ -131,8 +130,7 @@ def sms_gameresults(home_vs_away):
         winner = predictions[0]
         ties = [ pdt.person.name for pdt in predictions if pdt.delta == winner.delta ]
 
-        voice = Voice()
-        voice.login()
+        sms = SMS()
 
         for pdt in predictions:
             person = pdt.person
@@ -151,10 +149,9 @@ def sms_gameresults(home_vs_away):
                     text = '%s wins coffee being %d off. You were %d off, loser.' % (winner.person.name, winner.delta, pdt.delta)
             text += ' http://%s/%s/' % (HTTPHOST, home_vs_away)
 
-            voice.send_sms(pdt.person.phonenumber, text)
-            #print 'voice.send_sms("%s", "%s")' % (pdt.person.phonenumber, text)
+            sms.send(pdt.person.phonenumber, text)
 
-        voice.logout()
+        del sms
 
     except (Exception), e:
         raise e
