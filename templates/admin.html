@@ -1,0 +1,30 @@
+$def with (games)
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+    "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<title>Admin Page</title>
+<link type="text/css" rel="stylesheet" href="/static/style.css" media="all">
+<!-- http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js -->
+<!-- <script type="text/javascript" src="/static/jquery.min.js"></script> -->
+</head>
+<body>
+
+<div id="content">
+
+<h1 class="inset">Game Predictions Admin Page</h1>
+
+<ul>
+$for game in games:
+    <li><p class="game">
+    $if game.done:
+        $game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)
+    $else:
+        Punch in the <a href="/$game.ahref/final">$game.hometeam vs. $game.awayteam final score</a>.
+    </p>
+    </li>
+</ul>
+</div>
+
+</body>
+</html>

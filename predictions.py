@@ -14,7 +14,6 @@ mpass = 'bingo'
 mode  = 'dev'
 EMAILADDR = 'jon@jonebird.com'
 HTTPHOST  = 'jonebird.com:8080'
-if mode == 'dev': HTTPHOST = 'localhost:8080'
 
 #-Web----------------------------------------------
 
@@ -24,6 +23,7 @@ urls = (
     '/([^/]*)/final', 'FinalscoreURL',
     '/([^/]*)/([^/]*)/', 'PredictURL',
     '/creategame/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)', 'CreategameURL',
+    '/admin', 'AdminURL',
 )
 render = web.template.render('templates/')
 
@@ -31,6 +31,7 @@ def email_reminder():
     """Email the whole group with the predictions on the game. Do not call this if all of the predictions are not in yet."""
     try:
         now =  datetime.datetime.now()
+        # Using 40hrs from now because this is currently invoked at 8am, so +40hrs is midnight the next day...
         for game in Game.query.filter(and_(Game.gametime < (now + datetime.timedelta(hours=40)), Game.gametime > now)).all():
     
             # FIXME: Don't really like this query but it's working...
@@ -38,29 +39,30 @@ def email_reminder():
             
             GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
 
-            for pdt in game.predictions:
-                person = pdt.person
-                if mode == 'dev' and person.name != "Jon Miller": continue
-                
-                body =  'Thank you for getting your prediction in. You\'re a true fan.\n\n'
-                body += 'As a reminder, you put %s(%d) - %s(%d)\n' % (game.hometeam, pdt.home, game.awayteam, pdt.away)
-                body += 'If you need to update it, you still can at %s%s/\n\n' % (GAME_URL, quote(person.name))
-                body += 'But what I really need from you is to help bug the people who haven\'t put their predictions in yet.\n'
-                body += 'Please go nag:\n  %s\n\n' % (', '.join([ p.name for p in undecided ]))
-                body += 'Thank you,\nThe Gamemaster.'
-
-                me = EMAILADDR
-                you = person.email
+            if undecided:
+                for pdt in game.predictions:
+                    person = pdt.person
+                    if mode == 'dev' and person.name != "Jon Miller": continue
+                    
+                    body =  'Thank you for getting your prediction in. You\'re a true fan.\n\n'
+                    body += 'As a reminder, you put %s(%d) - %s(%d)\n' % (game.hometeam, pdt.home, game.awayteam, pdt.away)
+                    body += 'If you need to update it, you still can at %s%s/\n\n' % (GAME_URL, quote(person.name))
+                    body += 'But what I really need from you is to help bug the people who haven\'t put their predictions in yet.\n'
+                    body += 'Please go nag:\n  %s\n\n' % (', '.join([ p.name for p in undecided ]))
+                    body += 'Thank you,\nThe Gamemaster.'
     
-                msg = MIMEText(body)
-                msg['Subject'] = 'Thank you for your prediction on the %s vs. %s Game?' % (game.hometeam, game.awayteam)
-                msg['From'] = me
-                msg['To'] = you
-    
-                s = smtplib.SMTP()
-                s.connect()
-                s.sendmail(me, [you], msg.as_string())
-                s.quit()
+                    me = EMAILADDR
+                    toaddr = person.email.split(',')
+        
+                    msg = MIMEText(body)
+                    msg['Subject'] = 'Thank you for your prediction on the %s vs. %s Game?' % (game.hometeam, game.awayteam)
+                    msg['From'] = me
+                    msg['To'] = person.email
+        
+                    s = smtplib.SMTP()
+                    s.connect()
+                    s.sendmail(me, toaddr, msg.as_string())
+                    s.quit()
 
             for person in undecided:
                 if mode == 'dev' and person.name != "Jon Miller": continue
@@ -72,16 +74,16 @@ def email_reminder():
                 body += 'And good luck,\nThe Gamemaster.'
     
                 me = EMAILADDR
-                you = person.email
+                toaddr = person.email.split(',')
     
                 msg = MIMEText(body)
                 msg['Subject'] = 'What is your Prediction on the %s vs. %s Game?' % (game.hometeam, game.awayteam)
                 msg['From'] = me
-                msg['To'] = you
+                msg['To'] = person.email
     
                 s = smtplib.SMTP()
                 s.connect()
-                s.sendmail(me, [you], msg.as_string())
+                s.sendmail(me, toaddr, msg.as_string())
                 s.quit()
 
     except (Exception), e:
@@ -157,6 +159,17 @@ def sms_gameresults(home_vs_away):
         raise e
         #print 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
     
+class AdminURL:
+    def GET(self):
+        games = Game.query.order_by(Game.gametime).all()
+        for i in range(len(games)):
+            game = games[i]
+            # first, it is over?
+            game.done = (game.hscore != -1)
+            # Now help out the templating engine
+            game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
+            games[i] = game
+        print render.admin(games)
 
 class GamesURL:
     def GET(self):
@@ -376,6 +389,7 @@ if __name__ == "__main__":
         mode = open('mode.txt', 'r').readline().strip()
     except (IOError), e:
         print """WARNING: Guess we'll run in "dev" mode. Please add a one-liner "mode.txt" file."""
+    if mode == 'dev': HTTPHOST = 'localhost:8080'
 
     if (len(sys.argv) > 1 and sys.argv[1] in ['adduser', 'newuser', 'useradd']):
         print "Adding a new user. I will prompt you for the necessary intel."
