@@ -29,8 +29,38 @@ urls = (
 render = web.template.render('templates/')
 
 def sms_reminder():
-    pass
+    now =  datetime.now()
+    midnight_tomorrow = datetime(*[ int(x) for x in (now + timedelta(hours=24)).strftime('%Y %m %d 23 59').split()])
     #datetime(*[ int(x) for x in (game.gametime - timedelta(hours=24)).strftime('%Y %m %d 12 0').split()])
+
+    # Going to bug people differently based on the time of the day prior to the gameday.
+    # i.e start SMS'ing people at noon, harassing by 3pm and full out barrage by 5pm
+    nags = [ (17, 'OMFG! Is it really 5pm. Get off your ass.'),
+             (15, 'Seriously, people are waiting on you.'),
+             (12, 'Okay man, you should read your email.')]
+    message = ''
+    for H, msg in nags:
+        if now.hour > H:
+            message = msg
+            break
+
+    if message:
+        sms = SMS()
+        for game in Game.query.filter(and_(Game.gametime < midnight_tomorrow, Game.gametime > now)).all():   
+    
+            # FIXME: Don't really like this query but it's working...
+            undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
+            
+            GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
+
+            for person in undecided:
+                if mode == 'dev' and person.name != "Jon Miller": continue
+
+                #print 'sms.send(%s, %s)' % (person.phonenumber, '%s %s%s/' % (message, GAME_URL, quote(person.name)) )
+                sms.send(person.phonenumber, '%s %s%s/' % (message, GAME_URL, quote(person.name)) )
+
+        del sms
+                
 
 def email_reminder():
     """Email the whole group with the predictions on the game. Do not call this if all of the predictions are not in yet."""
@@ -411,6 +441,10 @@ if __name__ == "__main__":
 
     elif (len(sys.argv) > 1 and sys.argv[1] in ['remind', 'nudge']):
         email_reminder()
+        sys.exit(0)
+
+    elif (len(sys.argv) > 1 and sys.argv[1] in ['sms_bug']):
+        sms_reminder()
         sys.exit(0)
 
     elif (len(sys.argv) == 3 and sys.argv[1] in ['summary']):
