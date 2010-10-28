@@ -1,6 +1,7 @@
 #!/bin/env python
 
-import os, sys, datetime
+import os, sys
+from datetime import datetime, timedelta
 import web
 from model import *
 from utils.ncaa_odds import *
@@ -27,12 +28,16 @@ urls = (
 )
 render = web.template.render('templates/')
 
+def sms_reminder():
+    pass
+    #datetime(*[ int(x) for x in (game.gametime - timedelta(hours=24)).strftime('%Y %m %d 12 0').split()])
+
 def email_reminder():
     """Email the whole group with the predictions on the game. Do not call this if all of the predictions are not in yet."""
     try:
-        now =  datetime.datetime.now()
-        # Using 40hrs from now because this is currently invoked at 8am, so +40hrs is midnight the next day...
-        for game in Game.query.filter(and_(Game.gametime < (now + datetime.timedelta(hours=40)), Game.gametime > now)).all():
+        now =  datetime.now()
+        midnight_tomorrow = datetime(*[ int(x) for x in (now + timedelta(hours=24)).strftime('%Y %m %d 23 59').split()])
+        for game in Game.query.filter(and_(Game.gametime < midnight_tomorrow, Game.gametime > now)).all():   
     
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
@@ -173,7 +178,7 @@ class AdminURL:
 
 class GamesURL:
     def GET(self):
-        now = datetime.datetime.now()
+        now = datetime.now()
         games = Game.query.order_by(Game.gametime).all()
         charts = []
         people = Person.query.all()
@@ -225,13 +230,13 @@ class PredictionsURL:
 
             # Do I need to fetch the odds on the game?
             #  Shouldn't try to fetch before at least 4 days till game.
-            now = datetime.datetime.now()
-            if (game.gametime - now) < datetime.timedelta(days=4) and not game.odds:
+            now = datetime.now()
+            if (game.gametime - now) < timedelta(days=4) and not game.odds:
                 odds_html = get_odds(home_vs_away)
                 game.odds = odds_html
                 session.commit()
 
-            #td = datetime.datetime.now() - game.gametime
+            #td = datetime.now() - game.gametime
             #if (td.seconds + td.days * 24 * 3600) > 14400: # 4hours past gametime?
             if (game.hscore != -1):
                 game.done = True
@@ -247,7 +252,7 @@ class PredictionsURL:
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
 
             # Now, you can only see the predictions when all are in or the game has started.
-            game.showpredictions = (datetime.datetime.now() > game.gametime) or not undecided
+            game.showpredictions = (datetime.now() > game.gametime) or not undecided
 
             print render.predictions(game.predictions, game, undecided)
         except (Exception), e:
@@ -257,7 +262,7 @@ class CreategameURL:
     def GET(self, home, away, year, mon, day, hour, min):
         """Example URL would be /creategame/OSU/Marshall/2010/9/2/19/30?auth=<password>"""
         input = web.input(auth="bogus")
-        gametime = datetime.datetime(int(year), int(mon), int(day), int(hour), int(min))
+        gametime = datetime(int(year), int(mon), int(day), int(hour), int(min))
         #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, input.auth)
         if input.auth == mpass:
             nextgame = Game(hometeam=home, awayteam=away, gametime=gametime, hscore=-1, ascore=-1)
@@ -338,7 +343,7 @@ class PredictURL:
         game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
 
         # first of all, you can not make predictions when the game is on
-        if datetime.datetime.now() > game.gametime:
+        if datetime.now() > game.gametime:
             return web.seeother('/%s/' % home_vs_away)
 
         # also, you can not make a prediction once all of the predictions are in.
@@ -354,14 +359,14 @@ class PredictURL:
                 pp.home=int(getattr(i,hometeam))
                 pp.away=int(getattr(i,awayteam))
             else:
-                Predictions(home=int(getattr(i,hometeam)), away=int(getattr(i,awayteam)), dt=datetime.datetime.now(), person=p, game=game)
+                Predictions(home=int(getattr(i,hometeam)), away=int(getattr(i,awayteam)), dt=datetime.now(), person=p, game=game)
 
             # all done here
             session.commit()
 
             # Last prediction? Time to email the group?
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all() # FIXME (ugly)
-            showpredictions = (datetime.datetime.now() > game.gametime) or not undecided
+            showpredictions = (datetime.now() > game.gametime) or not undecided
             if showpredictions:
                 email_predictions(home_vs_away)
 
