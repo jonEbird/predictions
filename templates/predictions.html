@@ -41,13 +41,28 @@ $for p in predictions:
         <p class="delta">$p.delta</p>
     </li>
 $for p in undecided:
-    <li>
-      <p class="person"><a href="$p.name/">$p.name.split()[0] &quot;<i>$p.nickname</i>&quot; $p.name.split()[1]</a></p>
-      <p class="team1">??</p>
-      <p class="team2">??</p>
-    </li>
+    $if game.done:
+        <li>
+          <p class="person"><a href="$p.name/">$p.name.split()[0] &quot;<i>$p.nickname</i>&quot; $p.name.split()[1]</a></p>
+          <p class="team1">Poo</p>
+          <p class="team2">Poo</p>
+          <p class="delta">$game.penalty<span>*</span></p>
+        </li>
+    $elif game.started:
+        <li>
+          <p class="person"><a href="$p.name/">$p.name.split()[0] &quot;<i>$p.nickname</i>&quot; $p.name.split()[1]</a></p>
+          <p class="team1">Poo</p>
+          <p class="team2">Poo</p>
+        </li>
+    $else:
+        <li>
+          <p class="person"><a href="$p.name/">$p.name.split()[0] &quot;<i>$p.nickname</i>&quot; $p.name.split()[1]</a></p>
+          <p class="team1">??</p>
+          <p class="team2">??</p>
+        </li>
 </ul>
-
+$if game.done and undecided:
+    <p>* - Calculated penalty for not predicting: mean + (stddev / 2) = $game.penalty</p>
 </div>
 
 </body>

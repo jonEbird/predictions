@@ -13,6 +13,7 @@ p code { font-family: monospace }
 li { list-style-type: none; line-height: 1em;}
 div#clearinghouse {clear: both;}
 
+span.stats { color: green; }
 /*
    predictions
    --------------- */

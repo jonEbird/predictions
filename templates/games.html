@@ -19,6 +19,7 @@ $for game in games:
     <li><p class="game">On $game.gametime.strftime('%A, %b %d at %H:%M') <a href="/$game.ahref/">$game.hometeam hosts $game.awayteam</a>.
     $if game.done:
         The game is over. $game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)
+        &nbsp;[<span class="stats">$game.mean +- $game.stddev</span>]
     $else:
         Get your predictions in!
     </p>

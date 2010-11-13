@@ -2,6 +2,7 @@
 
 import os, sys
 from datetime import datetime, timedelta
+from math import sqrt, pow
 import web
 from model import *
 from utils.ncaa_odds import *
@@ -40,7 +41,7 @@ def sms_reminder():
              (12, 'Okay man, you should read your email.')]
     message = ''
     for H, msg in nags:
-        if now.hour > H:
+        if now.hour >= H:
             message = msg
             break
 
@@ -233,9 +234,11 @@ class GamesURL:
             # Update stats on completed games
             if not game.done:
                 continue
-            for pdt in game.predictions:
+            predictions = game.predictions
+            for pdt in predictions:
                 try:
                     delta = abs(game.hscore - pdt.home) + abs(game.ascore - pdt.away)
+                    pdt.delta = delta
                     name = pdt.person.name
                     person = people[pindex[name]]
                     person.tot_games += 1
@@ -243,7 +246,18 @@ class GamesURL:
                     people[pindex[name]] = person
                 except (TypeError), e:
                     continue
-                
+            # Statistics
+            game.mean    = sum([ pdt.delta for pdt in predictions ]) / len(predictions)
+            game.stddev  = int(sqrt(sum([ pow(pdt.delta - game.mean, 2) for pdt in predictions ]) / len(predictions)))
+            game.penalty = int(game.mean + (game.stddev / 2))
+
+            undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
+            for dummy in undecided:
+                person = people[pindex[dummy.name]]
+                person.tot_games += 1
+                person.tot_delta += game.penalty
+                people[pindex[dummy.name]] = person
+
         people.sort(cmp=lambda a, b: cmp(a.tot_delta, b.tot_delta))
         #charts.append("""http://chart.apis.google.com/chart?chxl=0:|%s&chxr=0,0,%d&chds=0,%d&chxt=y,x&chbh=a,5&chs=300x225&cht=bhg&chco=A2C180&chd=t:%s&chtt=Total+Points+Off+in+All+Games&chts=EE2525,11.5""" % ( "|".join([ p.name.replace(' ', '+') for p in people.__reversed__()]), people[-1].tot_delta, people[-1].tot_delta, ','.join([ ('%d' % p.tot_delta) for p in people ]) ))
 
@@ -266,6 +280,9 @@ class PredictionsURL:
                 game.odds = odds_html
                 session.commit()
 
+            # Need to know if the game has started or not.
+            game.started = now > game.gametime
+
             #td = datetime.now() - game.gametime
             #if (td.seconds + td.days * 24 * 3600) > 14400: # 4hours past gametime?
             if (game.hscore != -1):
@@ -275,6 +292,10 @@ class PredictionsURL:
                     p.delta = abs(game.hscore - p.home) + abs(game.ascore - p.away)
                     predictions[i] = p
                 predictions.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
+                # Statistics
+                game.mean    = sum([ pdt.delta for pdt in predictions ]) / len(predictions)
+                game.stddev  = sqrt(sum([ pow(pdt.delta - game.mean, 2) for pdt in predictions ]) / len(predictions))
+                game.penalty = int(game.mean + (game.stddev / 2))
             else:
                 game.done = False
             
