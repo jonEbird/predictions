@@ -246,6 +246,12 @@ class GamesURL:
                     people[pindex[name]] = person
                 except (TypeError), e:
                     continue
+
+            predictions.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
+            winner = predictions[0]
+            game.mugshots = [ pdt.person.mugshot for pdt in predictions if pdt.delta == winner.delta ]
+            game.winningnames = ' & '.join([ pdt.person.name for pdt in predictions if pdt.delta == winner.delta ])
+
             # Statistics
             game.mean    = sum([ pdt.delta for pdt in predictions ]) / len(predictions)
             game.stddev  = int(sqrt(sum([ pow(pdt.delta - game.mean, 2) for pdt in predictions ]) / len(predictions)))

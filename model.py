@@ -37,6 +37,7 @@ class Person(Entity):
     email       = Field(String(100))
     phonenumber = Field(String(15))
     password    = Field(String(60))
+    mugshot     = Field(String(50))
     predictions = OneToMany('Predictions')
 
     def __repr__(self):

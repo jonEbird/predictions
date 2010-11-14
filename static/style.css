@@ -13,7 +13,10 @@ p code { font-family: monospace }
 li { list-style-type: none; line-height: 1em;}
 div#clearinghouse {clear: both;}
 
-span.stats { color: green; }
+img.winningpic { float: left; }
+img.winningpic:hover { height: 150px; }
+span.stats { color: green; margin: 5px; }
+p.disclaimer { color: green; font-size:90%; }
 /*
    predictions
    --------------- */
