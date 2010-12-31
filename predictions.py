@@ -26,8 +26,30 @@ urls = (
     '/([^/]*)/([^/]*)/', 'PredictURL',
     '/creategame/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)', 'CreategameURL',
     '/admin', 'AdminURL',
+    '/mugs', 'Mugs',
 )
 render = web.template.render('templates/')
+
+def sms_message(msg):
+    """Craft a note to be SMS'ed to everyone. Some smart substitutions can occur such as:
+       %{name}     = name from DB
+       %{name_url} = name from DB urllib.quote'd
+       %{nickname} = nickname from DB
+    """
+    sms = SMS()
+    for person in Person.query.all():
+        if mode == 'dev' and person.name != "Jon Miller": continue
+
+        # Replace templates from message before sending.
+        msg_custom = msg
+        msg_custom = msg_custom.replace('%{name}', person.name)
+        msg_custom = msg_custom.replace('%{name_url}', quote(person.name))
+        msg_custom = msg_custom.replace('%{nickname}', person.nickname)
+
+        #print 'sms.send(%s, %s)' % (person.phonenumber, '%s %s%s/' % (message, GAME_URL, quote(person.name)) )
+        sms.send(person.phonenumber, msg_custom)
+
+    del sms
 
 def sms_reminder():
     now =  datetime.now()
@@ -194,6 +216,11 @@ def sms_gameresults(home_vs_away):
     except (Exception), e:
         raise e
         #print 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
+
+class Mugs:
+    def GET(self):
+        people = Person.query.all()
+        print render.mugs(people)
     
 class AdminURL:
     def GET(self):
@@ -476,6 +503,10 @@ if __name__ == "__main__":
 
     elif (len(sys.argv) == 3 and sys.argv[1] in ['summary']):
         email_predictions(sys.argv[2])
+        sys.exit(0)
+
+    elif (len(sys.argv) == 3 and sys.argv[1] in ['sms_all', 'txt_all']):
+        sms_message(sys.argv[2])
         sys.exit(0)
 
     web.run(urls, globals())
