@@ -1,13 +1,16 @@
 #!/bin/env python
 
-import os, sys
+import os, sys, smtplib
 from datetime import datetime, timedelta
 from math import sqrt, pow
+
+abspath = os.path.dirname(__file__)
+sys.path.append(abspath)
+os.chdir(abspath)
 import web
 from model import *
 from utils.ncaa_odds import *
 from utils.sms import *
-import smtplib
 from urllib import quote
 from email.mime.text import MIMEText
 
@@ -15,7 +18,17 @@ from email.mime.text import MIMEText
 mpass = 'bingo'
 mode  = 'dev'
 EMAILADDR = 'jon@jonebird.com'
-HTTPHOST  = 'jonebird.com:8080'
+HTTPHOST  = 'buckeyepredictions.com'
+try:
+    mpass = open('password.txt', 'r').readline().strip()
+except (IOError), e:
+    print """WARNING: Guess we're sticking with the default password of 'bingo'. Please add a one-liner "password.txt" file."""
+
+try:
+    mode = open('mode.txt', 'r').readline().strip()
+except (IOError), e:
+    print """WARNING: Guess we'll run in "dev" mode. Please add a one-liner "mode.txt" file."""
+if mode == 'dev': HTTPHOST = 'localhost:8080'
 
 #-Web----------------------------------------------
 
@@ -220,7 +233,7 @@ def sms_gameresults(home_vs_away):
 class Mugs:
     def GET(self):
         people = Person.query.all()
-        print render.mugs(people)
+        return render.mugs(people)
     
 class AdminURL:
     def GET(self):
@@ -232,7 +245,7 @@ class AdminURL:
             # Now help out the templating engine
             game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
             games[i] = game
-        print render.admin(games)
+        return render.admin(games)
 
 class GamesURL:
     def GET(self):
@@ -296,7 +309,7 @@ class GamesURL:
 
         charts.append("""http://chart.apis.google.com/chart?chxl=0:|%s&chxt=y,x&chxr=1,0,%d&chds=0,%d&chbh=a,5&chs=300x225&cht=bhg&chco=A2C180&chd=t:%s&chtt=Total+Points+Off+in+All+Games&chts=EE2525,11.5""" % ("|".join([ p.name.replace(' ', '+') for p in people.__reversed__()]), people[-1].tot_delta, people[-1].tot_delta, ','.join([ ('%d' % p.tot_delta) for p in people ])) )
 
-        print render.games(games, people, charts)
+        return render.games(games, people, charts)
 
 class PredictionsURL:
     def GET(self, home_vs_away):
@@ -338,9 +351,9 @@ class PredictionsURL:
             # Now, you can only see the predictions when all are in or the game has started.
             game.showpredictions = (datetime.now() > game.gametime) or not undecided
 
-            print render.predictions(game.predictions, game, undecided)
+            return render.predictions(game.predictions, game, undecided)
         except (Exception), e:
-            print 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
+            return 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
 
 class CreategameURL:
     def GET(self, home, away, year, mon, day, hour, min):
@@ -351,9 +364,9 @@ class CreategameURL:
         if input.auth == mpass:
             nextgame = Game(hometeam=home, awayteam=away, gametime=gametime, hscore=-1, ascore=-1)
             session.commit()
-            print 'Okay. It\'s %s vs. %s on %s.\n/%s_vs_%s/' % (home, away, gametime, home, away)
+            return 'Okay. It\'s %s vs. %s on %s.\n/%s_vs_%s/' % (home, away, gametime, home, away)
         else:
-            print 'Sorry, can not help you.'
+            return 'Sorry, can not help you.'
         return web.seeother('/%s_vs_%s/' % (home, away))
 
 class FinalscoreURL:
@@ -368,10 +381,10 @@ class FinalscoreURL:
                 web.form.Password('password', value=""),
                 )
 
-            print render.finalscore(hometeam, awayteam, myform, msg='')
+            return render.finalscore(hometeam, awayteam, myform, msg='')
 
         except (Exception), e:
-            print 'Sorry. You\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
+            return 'Sorry. You\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
 
     def POST(self, game):
         try:
@@ -396,11 +409,11 @@ class FinalscoreURL:
                     web.form.Password('password', value=""),
                     )
             
-                print render.predict(g, myform, msg='Wrong password. Try again.')
-                return
+                return render.predict(g, myform, msg='Wrong password. Try again.')
+                #return
         
         except (Exception), e:
-            print 'Seriously, you\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
+            return 'Seriously, you\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
 
 class PredictURL:
     def GET(self, game, person):
@@ -416,9 +429,9 @@ class PredictURL:
                 web.form.Password('password', value=""),
                 )
 
-            print render.predict(game, p, myform, msg='')
+            return render.predict(game, p, myform, msg='')
         except (Exception), e:
-            print 'Sorry. You probably are looking for another game?\n%s' % (str(e))
+            return 'Sorry. You probably are looking for another game?\n%s' % (str(e))
 
     def POST(self, home_vs_away, person):
         i = web.input(auth="bogus")
@@ -462,23 +475,13 @@ class PredictURL:
                 web.form.Password('password', value=""),
                 )
             
-            print render.predict(game, p, myform, msg='Wrong password. Try again.')
+            return render.predict(game, p, myform, msg='Wrong password. Try again.')
 
 web.webapi.internalerror = web.debugerror
-#app = web.application(urls, globals())
+app = web.application(urls, globals(), autoreload=False)
+application = app.wsgifunc()
 
 if __name__ == "__main__":
-
-    try:
-        mpass = open('password.txt', 'r').readline().strip()
-    except (IOError), e:
-        print """WARNING: Guess we're sticking with the default password of 'bingo'. Please add a one-liner "password.txt" file."""
-
-    try:
-        mode = open('mode.txt', 'r').readline().strip()
-    except (IOError), e:
-        print """WARNING: Guess we'll run in "dev" mode. Please add a one-liner "mode.txt" file."""
-    if mode == 'dev': HTTPHOST = 'localhost:8080'
 
     if (len(sys.argv) > 1 and sys.argv[1] in ['adduser', 'newuser', 'useradd']):
         print "Adding a new user. I will prompt you for the necessary intel."
@@ -509,5 +512,5 @@ if __name__ == "__main__":
         sms_message(sys.argv[2])
         sys.exit(0)
 
-    web.run(urls, globals())
-    #app.run()
+    #web.run(urls, globals())
+    app.run()

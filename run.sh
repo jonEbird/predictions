@@ -4,4 +4,6 @@ REL_DIR="$(dirname $0)"
 
 # I know, hackish...
 cd $REL_DIR
-./predictions.py
+while :; do
+    ./predictions.py
+done

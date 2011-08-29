@@ -20,13 +20,13 @@ $for game in games:
     $if game.done:
         <li><p class="game">
         $for mugshot in game.mugshots:
-            <img class="winningpic" src="$mugshot" height="50" />
+            <img class="winningpic" src="/$mugshot" height="50" />
         $game.winningnames wins coffee!
-        Final score on $game.gametime.strftime('%b %d') was <a href="/$game.ahref/">$game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)</a>
+        Final score on $game.gametime.strftime('%b %d') was <a href="$game.ahref/">$game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)</a>
         [<span class="stats">$game.mean +- $game.stddev</span>]
         </p></li>
     $else:
-        <li><p class="game">On $game.gametime.strftime('%A, %b %d at %H:%M') <a href="/$game.ahref/">$game.hometeam hosts $game.awayteam</a>. Get your predictions in!
+        <li><p class="game">On $game.gametime.strftime('%A, %b %d at %H:%M') <a href="$game.ahref/">$game.hometeam hosts $game.awayteam</a>. Get your predictions in!
     </p>
     </li>
 </ul>

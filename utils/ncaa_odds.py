@@ -30,8 +30,8 @@ def get_odds(home_vs_away):
 
 if __name__ == '__main__':
 
-    # print get_odds(sys.argv[1])
-    # sys.exit(0)
+    print get_odds(sys.argv[1])
+    sys.exit(0)
 
     # pass a game matchup like the URLs such as Wisconsin_vs_OSU
     import memcache
