@@ -17,7 +17,7 @@ from email.mime.text import MIMEText
 # Defaults
 mpass = 'bingo'
 mode  = 'dev'
-EMAILADDR = 'jon@jonebird.com'
+EMAILADDR = 'jon@buckeyepredictions.com'
 HTTPHOST  = 'buckeyepredictions.com'
 try:
     mpass = open('password.txt', 'r').readline().strip()
@@ -64,6 +64,40 @@ def sms_message(msg):
 
     del sms
 
+def email_message(subject, msg):
+    """Craft a note to be SMS'ed to everyone. Some smart substitutions can occur such as:
+       %{name}     = name from DB
+       %{name_url} = name from DB urllib.quote'd
+       %{nickname} = nickname from DB
+    """
+    sms = SMS()
+    for person in Person.query.all():
+        if mode == 'dev' and person.name != "Jon Miller": continue
+
+        # Replace templates from message before sending.
+        msg_custom = msg
+        msg_custom = msg_custom.replace('%{name}', person.name)
+        msg_custom = msg_custom.replace('%{name_url}', quote(person.name))
+        msg_custom = msg_custom.replace('%{nickname}', person.nickname)
+
+        subject_custom = subject
+        subject_custom = subject_custom.replace('%{name}', person.name)
+        subject_custom = subject_custom.replace('%{name_url}', quote(person.name))
+        subject_custom = subject_custom.replace('%{nickname}', person.nickname)
+
+        me = EMAILADDR
+        toaddr = person.email.split(',')
+
+        msg = MIMEText(msg_custom)
+        msg['Subject'] = subject_custom
+        msg['From'] = me
+        msg['To'] = person.email
+
+        s = smtplib.SMTP()
+        s.connect()
+        s.sendmail(me, toaddr, msg.as_string())
+        s.quit()
+
 def sms_reminder():
     now =  datetime.now()
     midnight_tomorrow = datetime(*[ int(x) for x in (now + timedelta(hours=24)).strftime('%Y %m %d 23 59').split()])
@@ -82,11 +116,11 @@ def sms_reminder():
 
     if message:
         sms = SMS()
-        for game in Game.query.filter(and_(Game.gametime < midnight_tomorrow, Game.gametime > now)).all():   
-    
+        for game in Game.query.filter(and_(Game.gametime < midnight_tomorrow, Game.gametime > now)).all():
+
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
-            
+
             GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
 
             for person in undecided:
@@ -96,40 +130,40 @@ def sms_reminder():
                 sms.send(person.phonenumber, '%s %s%s/' % (message, GAME_URL, quote(person.name)) )
 
         del sms
-                
+
 
 def email_reminder():
     """Email the whole group with the predictions on the game. Do not call this if all of the predictions are not in yet."""
     try:
         now =  datetime.now()
         midnight_tomorrow = datetime(*[ int(x) for x in (now + timedelta(hours=24)).strftime('%Y %m %d 23 59').split()])
-        for game in Game.query.filter(and_(Game.gametime < midnight_tomorrow, Game.gametime > now)).all():   
-    
+        for game in Game.query.filter(and_(Game.gametime < midnight_tomorrow, Game.gametime > now)).all():
+
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
-            
+
             GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
 
             if undecided:
                 for pdt in game.predictions:
                     person = pdt.person
                     if mode == 'dev' and person.name != "Jon Miller": continue
-                    
+
                     body =  'Thank you for getting your prediction in. You\'re a true fan.\n\n'
                     body += 'As a reminder, you put %s(%d) - %s(%d)\n' % (game.hometeam, pdt.home, game.awayteam, pdt.away)
                     body += 'If you need to update it, you still can at %s%s/\n\n' % (GAME_URL, quote(person.name))
                     body += 'But what I really need from you is to help bug the people who haven\'t put their predictions in yet.\n'
                     body += 'Please go nag:\n  %s\n\n' % (', '.join([ p.name for p in undecided ]))
                     body += 'Thank you,\nThe Gamemaster.'
-    
+
                     me = EMAILADDR
                     toaddr = person.email.split(',')
-        
+
                     msg = MIMEText(body)
                     msg['Subject'] = 'Thank you for your prediction on the %s vs. %s Game?' % (game.hometeam, game.awayteam)
                     msg['From'] = me
                     msg['To'] = person.email
-        
+
                     s = smtplib.SMTP()
                     s.connect()
                     s.sendmail(me, toaddr, msg.as_string())
@@ -137,21 +171,21 @@ def email_reminder():
 
             for person in undecided:
                 if mode == 'dev' and person.name != "Jon Miller": continue
-    
+
                 body =  'Need to get your prediction in for the %s vs. %s game.\n\n' % (game.hometeam, game.awayteam)
                 body += 'Go to %s%s/\n\n' % (GAME_URL, quote(person.name))
                 body += 'Todd suggests this site for spread - http://sportsdirect.usatoday.com/odds/usatoday/ncaaf.aspx\n'
                 body += 'But you will already find the odds included on the prediction page for your convenience.\n\n'
                 body += 'And good luck,\nThe Gamemaster.'
-    
+
                 me = EMAILADDR
                 toaddr = person.email.split(',')
-    
+
                 msg = MIMEText(body)
                 msg['Subject'] = 'What is your Prediction on the %s vs. %s Game?' % (game.hometeam, game.awayteam)
                 msg['From'] = me
                 msg['To'] = person.email
-    
+
                 s = smtplib.SMTP()
                 s.connect()
                 s.sendmail(me, toaddr, msg.as_string())
@@ -234,7 +268,7 @@ class Mugs:
     def GET(self):
         people = Person.query.all()
         return render.mugs(people)
-    
+
 class AdminURL:
     def GET(self):
         games = Game.query.order_by(Game.gametime).all()
@@ -344,7 +378,7 @@ class PredictionsURL:
                 game.penalty = int(game.mean + (game.stddev / 2))
             else:
                 game.done = False
-            
+
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
 
@@ -391,7 +425,7 @@ class FinalscoreURL:
             i = web.input()
             hometeam, awayteam = game.split('_vs_')
             g = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
-            
+
             if i.password == mpass:
                 g.hscore = int(getattr(i,hometeam))
                 g.ascore = int(getattr(i,awayteam))
@@ -408,10 +442,10 @@ class FinalscoreURL:
                     web.form.Textbox(awayteam, value=getattr(i,awayteam)),
                     web.form.Password('password', value=""),
                     )
-            
+
                 return render.predict(g, myform, msg='Wrong password. Try again.')
                 #return
-        
+
         except (Exception), e:
             return 'Seriously, you\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
 
@@ -468,13 +502,13 @@ class PredictURL:
                 email_predictions(home_vs_away)
 
             return web.seeother('/%s/' % home_vs_away)
-        else:            
+        else:
             myform = web.form.Form(
                 web.form.Textbox(hometeam, value=getattr(i,hometeam)),
                 web.form.Textbox(awayteam, value=getattr(i,awayteam)),
                 web.form.Password('password', value=""),
                 )
-            
+
             return render.predict(game, p, myform, msg='Wrong password. Try again.')
 
 web.webapi.internalerror = web.debugerror
@@ -510,6 +544,10 @@ if __name__ == "__main__":
 
     elif (len(sys.argv) == 3 and sys.argv[1] in ['sms_all', 'txt_all']):
         sms_message(sys.argv[2])
+        sys.exit(0)
+
+    elif (len(sys.argv) == 3 and sys.argv[1] in ['email_all']):
+        email_message(sys.argv[2])
         sys.exit(0)
 
     #web.run(urls, globals())
