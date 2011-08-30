@@ -548,9 +548,7 @@ if __name__ == "__main__":
 
     elif (len(sys.argv) == 3 and sys.argv[1] in ['email_all']):
         body = sys.stdin.read()
-        print 'You want to send "%s"?' % body
-        sys.exit(0)
-        email_message(sys.argv[2])
+        email_message(sys.argv[2], body)
         sys.exit(0)
 
     #web.run(urls, globals())
