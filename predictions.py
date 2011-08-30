@@ -88,14 +88,14 @@ def email_message(subject, msg):
         me = EMAILADDR
         toaddr = person.email.split(',')
 
-        msg = MIMEText(msg_custom)
-        msg['Subject'] = subject_custom
-        msg['From'] = me
-        msg['To'] = person.email
+        mailmsg = MIMEText(msg_custom)
+        mailmsg['Subject'] = subject_custom
+        mailmsg['From'] = me
+        mailmsg['To'] = person.email
 
         s = smtplib.SMTP()
         s.connect()
-        s.sendmail(me, toaddr, msg.as_string())
+        s.sendmail(me, toaddr, mailmsg.as_string())
         s.quit()
 
 def sms_reminder():
