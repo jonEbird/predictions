@@ -546,8 +546,8 @@ if __name__ == "__main__":
         sms_message(sys.argv[2])
         sys.exit(0)
 
-    elif (len(sys.argv) == 3 and sys.argv[1] in ['email_all']):
-        email_message(sys.argv[2])
+    elif (len(sys.argv) == 4 and sys.argv[1] in ['email_all']):
+        email_message(sys.argv[2], sys.argv[3])
         sys.exit(0)
 
     #web.run(urls, globals())
