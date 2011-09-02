@@ -70,7 +70,6 @@ def email_message(subject, msg):
        %{name_url} = name from DB urllib.quote'd
        %{nickname} = nickname from DB
     """
-    sms = SMS()
     for person in Person.query.all():
         if mode == 'dev' and person.name != "Jon Miller": continue
 
@@ -79,11 +78,13 @@ def email_message(subject, msg):
         msg_custom = msg_custom.replace('%{name}', person.name)
         msg_custom = msg_custom.replace('%{name_url}', quote(person.name))
         msg_custom = msg_custom.replace('%{nickname}', person.nickname)
+        msg_custom = msg_custom.replace('%{password}', person.password)
 
         subject_custom = subject
         subject_custom = subject_custom.replace('%{name}', person.name)
         subject_custom = subject_custom.replace('%{name_url}', quote(person.name))
         subject_custom = subject_custom.replace('%{nickname}', person.nickname)
+        subject_custom = subject_custom.replace('%{password}', person.password)
 
         me = EMAILADDR
         toaddr = person.email.split(',')
