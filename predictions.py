@@ -1,6 +1,6 @@
 #!/bin/env python
 
-import os, sys, smtplib
+import os, sys, smtplib, traceback
 from datetime import datetime, timedelta
 from math import sqrt, pow
 
@@ -357,9 +357,12 @@ class PredictionsURL:
             #  Shouldn't try to fetch before at least 4 days till game.
             now = datetime.now()
             if (game.gametime - now) < timedelta(days=4) and not game.odds:
-                odds_html = get_odds(home_vs_away)
-                game.odds = odds_html
-                session.commit()
+                try:
+                    odds_html = get_odds(home_vs_away)
+                    game.odds = odds_html
+                    session.commit()
+                except (Exception), e:
+                    pass
 
             # Need to know if the game has started or not.
             game.started = now > game.gametime
@@ -388,6 +391,8 @@ class PredictionsURL:
 
             return render.predictions(game.predictions, game, undecided)
         except (Exception), e:
+            print 'print_exc():'
+            traceback.print_exc(file=sys.stdout)
             return 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
 
 class CreategameURL:
@@ -550,6 +555,11 @@ if __name__ == "__main__":
     elif (len(sys.argv) == 3 and sys.argv[1] in ['email_all']):
         body = sys.stdin.read()
         email_message(sys.argv[2], body)
+        sys.exit(0)
+
+    elif (len(sys.argv) == 3 and sys.argv[1] in ['sms_final', 'sms_gameresults']):
+        home_vs_away = sys.argv[2]
+        sms_gameresults(home_vs_away)
         sys.exit(0)
 
     #web.run(urls, globals())

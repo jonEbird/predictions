@@ -9,6 +9,7 @@ body { font-family: verdana, arial, sans-serif; font-size:120%; margin:1em 2em; 
 a:link { color: black; }
 a:visited { color: black; }
 a:hover { color: red; }
+p { white-space: nowrap }
 p code { font-family: monospace }
 li { list-style-type: none; line-height: 1em;}
 div#clearinghouse {clear: both;}
@@ -22,11 +23,11 @@ p.disclaimer { color: green; font-size:90%; }
    --------------- */
 
 p.person_heading { color: white; } /* match background... there for space and not seen */
-p.team1_heading, p.team2_heading  { float: left; font-size: 2em; line-height: .8em;}
+p.team1_heading, p.team2_heading  { float: left; font-size: 1.5em; line-height: .8em; width: 13%; }
 
-p.person_heading, p.person { float: left; width: 40%; font-size: 1.5em; }
-p.team1  { float: left; font-size: 1em; }
-p.team2  { float: left; font-size: 1em; }
+p.person_heading, p.person { float: left; width: 40%; font-size: 1.5em; overflow: hidden; }
+p.team1  { float: left; font-size: 1em; width: 13%; }
+p.team2  { float: left; font-size: 1em; width: 13%; }
 
 li { margin: 1em 0; }
 
