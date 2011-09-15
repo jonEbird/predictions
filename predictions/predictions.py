@@ -6,7 +6,7 @@ from math import sqrt, pow
 
 abspath = os.path.dirname(__file__)
 sys.path.append(abspath)
-os.chdir(abspath)
+if abspath: os.chdir(abspath)
 import web
 from model import *
 from utils.ncaa_odds import *
