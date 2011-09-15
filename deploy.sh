@@ -17,7 +17,7 @@ fi
 git ls-files |\
   xargs ls 2>&- |\
   xargs tar -cf - |\
-  sudo -u apache tar -C /var/www/buckeyepredictions/predictions/ -xvf -
+  sudo -u apache tar -C /var/www/buckeyepredictions -xvf -
 
 sudo /etc/init.d/httpd restart
 

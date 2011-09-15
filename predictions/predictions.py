@@ -28,7 +28,7 @@ try:
     mode = open('mode.txt', 'r').readline().strip()
 except (IOError), e:
     print """WARNING: Guess we'll run in "dev" mode. Please add a one-liner "mode.txt" file."""
-if mode == 'dev': HTTPHOST = 'localhost:8080'
+if mode == 'dev': HTTPHOST = 'devbuckeyepredictions.com'
 
 #-Web----------------------------------------------
 
@@ -122,7 +122,7 @@ def sms_reminder():
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
 
-            GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
+            GAME_URL = 'http://%s/predictions/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
 
             for person in undecided:
                 if mode == 'dev' and person.name != "Jon Miller": continue
@@ -143,7 +143,7 @@ def email_reminder():
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
 
-            GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
+            GAME_URL = 'http://%s/predictions/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
 
             if undecided:
                 for pdt in game.predictions:
@@ -404,10 +404,9 @@ class CreategameURL:
         if input.auth == mpass:
             nextgame = Game(hometeam=home, awayteam=away, gametime=gametime, hscore=-1, ascore=-1)
             session.commit()
-            return 'Okay. It\'s %s vs. %s on %s.\n/%s_vs_%s/' % (home, away, gametime, home, away)
+            return web.seeother('http://%s/predictions/%s_vs_%s/' % (HTTPHOST, home, away))
         else:
             return 'Sorry, can not help you.'
-        return web.seeother('/%s_vs_%s/' % (home, away))
 
 class FinalscoreURL:
     def GET(self, game):
@@ -440,7 +439,7 @@ class FinalscoreURL:
                 # Send out a SMS message about the winners
                 sms_gameresults(game)
 
-                return web.seeother('/%s/' % game)
+                return web.seeother('http://%s/predictions/%s/' % (HTTPHOST, game))
 
             else:
                 myform = web.form.Form(
@@ -481,12 +480,12 @@ class PredictURL:
 
         # first of all, you can not make predictions when the game is on
         if datetime.now() > game.gametime:
-            return web.seeother('/%s/' % home_vs_away)
+            return web.seeother('http://%s/predictions/%s/' % (HTTPHOST, home_vs_away))
 
         # also, you can not make a prediction once all of the predictions are in.
         undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
         if not undecided:
-            return web.seeother('/%s/' % home_vs_away)
+            return web.seeother('http://%s/predictions/%s/' % (HTTPHOST, home_vs_away))
 
         if p.password == i.password or i.password == mpass:
             # Is there already a prediction out there for this?
@@ -507,7 +506,7 @@ class PredictURL:
             if showpredictions:
                 email_predictions(home_vs_away)
 
-            return web.seeother('/%s/' % home_vs_away)
+            return web.seeother('http://%s/predictions/%s/' % (HTTPHOST, home_vs_away))
         else:
             myform = web.form.Form(
                 web.form.Textbox(hometeam, value=getattr(i,hometeam)),
