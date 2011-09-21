@@ -18,7 +18,7 @@ from email.mime.text import MIMEText
 mpass = 'bingo'
 mode  = 'dev'
 EMAILADDR = 'jon@buckeyepredictions.com'
-HTTPHOST  = 'buckeyepredictions.com'
+HTTPHOST  = 'buckeyepredictions.com/predictions'
 try:
     mpass = open('password.txt', 'r').readline().strip()
 except (IOError), e:
@@ -28,7 +28,7 @@ try:
     mode = open('mode.txt', 'r').readline().strip()
 except (IOError), e:
     print """WARNING: Guess we'll run in "dev" mode. Please add a one-liner "mode.txt" file."""
-if mode == 'dev': HTTPHOST = 'devbuckeyepredictions.com'
+if mode == 'dev': HTTPHOST = 'devbuckeyepredictions.com/predictions'
 
 #-Web----------------------------------------------
 
@@ -43,6 +43,25 @@ urls = (
 )
 render = web.template.render('templates/')
 
+def custom_msg(msg, person):
+    msg_custom = msg
+    msg_custom = msg_custom.replace('%{name}', person.name)
+    msg_custom = msg_custom.replace('%{name_url}', quote(person.name))
+    msg_custom = msg_custom.replace('%{nickname}', person.nickname)
+    msg_custom = msg_custom.replace('%{password}', person.password)
+    return msg_custom
+
+def dateparse(date):
+    formats = ('%Y-%m-%d %H:%M', '%m/%d/%y %H:%M', '%Y-%m-%dT%H:%M:%SZ')
+    t = None
+    for format in formats:
+        try:
+            t = datetime.strptime(date, format)
+            break
+        except (Exception), e:
+            continue
+    return t
+
 def sms_message(msg):
     """Craft a note to be SMS'ed to everyone. Some smart substitutions can occur such as:
        %{name}     = name from DB
@@ -52,16 +71,7 @@ def sms_message(msg):
     sms = SMS()
     for person in Person.query.all():
         if mode == 'dev' and person.name != "Jon Miller": continue
-
-        # Replace templates from message before sending.
-        msg_custom = msg
-        msg_custom = msg_custom.replace('%{name}', person.name)
-        msg_custom = msg_custom.replace('%{name_url}', quote(person.name))
-        msg_custom = msg_custom.replace('%{nickname}', person.nickname)
-
-        #print 'sms.send(%s, %s)' % (person.phonenumber, '%s %s%s/' % (message, GAME_URL, quote(person.name)) )
-        sms.send(person.phonenumber, msg_custom)
-
+        sms.send(person.phonenumber, custom_msg(msg, person))
     del sms
 
 def email_message(subject, msg):
@@ -73,29 +83,16 @@ def email_message(subject, msg):
     for person in Person.query.all():
         if mode == 'dev' and person.name != "Jon Miller": continue
 
-        # Replace templates from message before sending.
-        msg_custom = msg
-        msg_custom = msg_custom.replace('%{name}', person.name)
-        msg_custom = msg_custom.replace('%{name_url}', quote(person.name))
-        msg_custom = msg_custom.replace('%{nickname}', person.nickname)
-        msg_custom = msg_custom.replace('%{password}', person.password)
-
-        subject_custom = subject
-        subject_custom = subject_custom.replace('%{name}', person.name)
-        subject_custom = subject_custom.replace('%{name_url}', quote(person.name))
-        subject_custom = subject_custom.replace('%{nickname}', person.nickname)
-        subject_custom = subject_custom.replace('%{password}', person.password)
-
         me = EMAILADDR
         toaddr = person.email.split(',')
 
-        mailmsg = MIMEText(msg_custom)
-        mailmsg['Subject'] = subject_custom
+        mailmsg = MIMEText(custom_msg(msg, person))
+        mailmsg['Subject'] = custom_msg(subject, person)
         mailmsg['From'] = me
         mailmsg['To'] = person.email
 
         s = smtplib.SMTP()
-        s.connect()
+        s.connect('localhost', 25)
         s.sendmail(me, toaddr, mailmsg.as_string())
         s.quit()
 
@@ -122,7 +119,7 @@ def sms_reminder():
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
 
-            GAME_URL = 'http://%s/predictions/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
+            GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
 
             for person in undecided:
                 if mode == 'dev' and person.name != "Jon Miller": continue
@@ -143,19 +140,26 @@ def email_reminder():
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
 
-            GAME_URL = 'http://%s/predictions/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
+            GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
 
             if undecided:
                 for pdt in game.predictions:
                     person = pdt.person
                     if mode == 'dev' and person.name != "Jon Miller": continue
 
-                    body =  'Thank you for getting your prediction in. You\'re a true fan.\n\n'
-                    body += 'As a reminder, you put %s(%d) - %s(%d)\n' % (game.hometeam, pdt.home, game.awayteam, pdt.away)
-                    body += 'If you need to update it, you still can at %s%s/\n\n' % (GAME_URL, quote(person.name))
-                    body += 'But what I really need from you is to help bug the people who haven\'t put their predictions in yet.\n'
-                    body += 'Please go nag:\n  %s\n\n' % (', '.join([ p.name for p in undecided ]))
-                    body += 'Thank you,\nThe Gamemaster.'
+                    body = """
+Thank you for getting your prediction in. You're a true fan.
+
+As a reminder, you put %s(%d) - %s(%d)
+If you need to update it, you still can at %s%s
+
+But what I really need from you is to help bug the people who haven't put their predictions in yet.
+Please go nag:
+  %s
+
+Thank you,
+The Gamemaster.
+""" % (game.hometeam, pdt.home, game.awayteam, pdt.away, GAME_URL, quote(person.name), ', '.join([ p.name for p in undecided ]))
 
                     me = EMAILADDR
                     toaddr = person.email.split(',')
@@ -173,11 +177,17 @@ def email_reminder():
             for person in undecided:
                 if mode == 'dev' and person.name != "Jon Miller": continue
 
-                body =  'Need to get your prediction in for the %s vs. %s game.\n\n' % (game.hometeam, game.awayteam)
-                body += 'Go to %s%s/\n\n' % (GAME_URL, quote(person.name))
-                body += 'Todd suggests this site for spread - http://sportsdirect.usatoday.com/odds/usatoday/ncaaf.aspx\n'
-                body += 'But you will already find the odds included on the prediction page for your convenience.\n\n'
-                body += 'And good luck,\nThe Gamemaster.'
+                body = """
+Need to get your prediction in for the %s vs. %s game.
+
+Go to %s%s/
+
+Todd suggests this site for spread - http://sportsdirect.usatoday.com/odds/usatoday/ncaaf.aspx
+But you will already find the odds included on the prediction page for your convenience.
+
+And good luck,
+The Gamemaster.'
+""" % (game.hometeam, game.awayteam, GAME_URL, quote(person.name))
 
                 me = EMAILADDR
                 toaddr = person.email.split(',')
@@ -280,7 +290,47 @@ class AdminURL:
             # Now help out the templating engine
             game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
             games[i] = game
-        return render.admin(games)
+
+        # /creategame/OSU/Marshall/2010/9/2/19/30?auth=<password>
+        myform = web.form.Form(
+            web.form.Textbox("Home", value=""),
+            web.form.Textbox("Away", value=""),
+            web.form.Textbox("Datetime", value=""),
+            web.form.Password('password', value=""),
+            )
+
+        msg = ''
+        return render.admin(games, myform, msg)
+
+    def POST(self):
+        i = web.input(auth="bogus")
+        gametime = dateparse(i.Datetime)
+        if not gametime:
+            msg = 'Sorry. Could not parse the date of "%s". Try a format of: YYYY-MM-DD HH:MM (%s)' % (str(i.Datetime), str(gametime))
+            games = Game.query.order_by(Game.gametime).all()
+            for n in range(len(games)):
+                game = games[n]
+                # first, it is over?
+                game.done = (game.hscore != -1)
+                # Now help out the templating engine
+                game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
+                games[n] = game
+            myform = web.form.Form(
+                web.form.Textbox("Home", value=i.Home),
+                web.form.Textbox("Away", value=i.Away),
+                web.form.Textbox("Datetime", value=i.Datetime),
+                web.form.Password('password', value=""),
+                )
+            return render.admin(games, myform, msg)
+
+        #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, input.auth)
+        if i.password == mpass:
+            nextgame = Game(hometeam=i.Home, awayteam=i.Away, gametime=gametime, hscore=-1, ascore=-1)
+            session.commit()
+            return web.seeother('http://%s/%s_vs_%s/' % (HTTPHOST, quote(i.Home), quote(i.Away)))
+        else:
+            return 'Sorry, can not help you. That is not the right password.'
+
 
 class GamesURL:
     def GET(self):
@@ -398,13 +448,13 @@ class PredictionsURL:
 class CreategameURL:
     def GET(self, home, away, year, mon, day, hour, min):
         """Example URL would be /creategame/OSU/Marshall/2010/9/2/19/30?auth=<password>"""
-        input = web.input(auth="bogus")
+        i = web.input(auth="bogus")
         gametime = datetime(int(year), int(mon), int(day), int(hour), int(min))
-        #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, input.auth)
-        if input.auth == mpass:
+        #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, i.auth)
+        if i.auth == mpass:
             nextgame = Game(hometeam=home, awayteam=away, gametime=gametime, hscore=-1, ascore=-1)
             session.commit()
-            return web.seeother('http://%s/predictions/%s_vs_%s/' % (HTTPHOST, home, away))
+            return web.seeother('http://%s/%s_vs_%s/' % (HTTPHOST, home, away))
         else:
             return 'Sorry, can not help you.'
 
@@ -439,7 +489,7 @@ class FinalscoreURL:
                 # Send out a SMS message about the winners
                 sms_gameresults(game)
 
-                return web.seeother('http://%s/predictions/%s/' % (HTTPHOST, game))
+                return web.seeother('http://%s/%s/' % (HTTPHOST, game))
 
             else:
                 myform = web.form.Form(
@@ -480,12 +530,12 @@ class PredictURL:
 
         # first of all, you can not make predictions when the game is on
         if datetime.now() > game.gametime:
-            return web.seeother('http://%s/predictions/%s/' % (HTTPHOST, home_vs_away))
+            return web.seeother('http://%s/%s/' % (HTTPHOST, home_vs_away))
 
         # also, you can not make a prediction once all of the predictions are in.
         undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
         if not undecided:
-            return web.seeother('http://%s/predictions/%s/' % (HTTPHOST, home_vs_away))
+            return web.seeother('http://%s/%s/' % (HTTPHOST, home_vs_away))
 
         if p.password == i.password or i.password == mpass:
             # Is there already a prediction out there for this?
@@ -506,7 +556,7 @@ class PredictURL:
             if showpredictions:
                 email_predictions(home_vs_away)
 
-            return web.seeother('http://%s/predictions/%s/' % (HTTPHOST, home_vs_away))
+            return web.seeother('http://%s/%s/' % (HTTPHOST, home_vs_away))
         else:
             myform = web.form.Form(
                 web.form.Textbox(hometeam, value=getattr(i,hometeam)),

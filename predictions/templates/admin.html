@@ -1,4 +1,4 @@
-$def with (games)
+$def with (games, myform, msg)
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
     "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -14,16 +14,25 @@ $def with (games)
 
 <h1 class="inset">Game Predictions Admin Page</h1>
 
+$if msg:
+    <p>$msg</p>
+
 <ul>
 $for game in games:
     <li><p class="game">
     $if game.done:
         $game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)
     $else:
-        Punch in the <a href="/$game.ahref/final">$game.hometeam vs. $game.awayteam final score</a>.
+        Punch in the <a href="/predictions/$game.ahref/final">$game.hometeam vs. $game.awayteam final score</a>.
     </p>
     </li>
 </ul>
+<h3>Create a New Game</h3>
+<form method="post" action="" autocomplete="off">
+$:myform.render()
+<input type="submit" value="Create Game"/>
+</form>
+
 </div>
 
 </body>
