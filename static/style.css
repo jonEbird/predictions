@@ -22,19 +22,21 @@ p.disclaimer { color: green; font-size:90%; }
    predictions
    --------------- */
 
+li { margin: 1em 0; }
+li.predictions { padding: .2em 0; }
+
 p.person_heading { color: white; } /* match background... there for space and not seen */
 p.team1_heading, p.team2_heading  { float: left; font-size: 1.5em; line-height: .8em; width: 13%; }
 
-p.person_heading, p.person { float: left; width: 40%; font-size: 1.5em; overflow: hidden; }
+p.person_heading, p.person { float: left; width: 60%; font-size: 1.3em; overflow: hidden; padding: .2em 0; }
 p.team1  { float: left; font-size: 1em; width: 13%; }
 p.team2  { float: left; font-size: 1em; width: 13%; }
-
-li { margin: 1em 0; }
 
 p.team1_heading, p.team2_heading, p.team1, p.team2 { width: 15%; text-align: center;}
 p.delta { text-align: left; color: red; font-size: 1.5em; margin: 0 0 0 1em; }
 
 p.team1, p.team2, p.delta { font-family: "Comic Sans MS", cursive; }
+
 
 p.person a { text-decoration: none; }
 span.name { font-size: 1.2em; color: red; }
