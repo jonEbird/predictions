@@ -28,7 +28,7 @@ li.predictions { padding: .2em 0; }
 p.person_heading { color: white; } /* match background... there for space and not seen */
 p.team1_heading, p.team2_heading  { float: left; font-size: 1.5em; line-height: .8em; width: 13%; }
 
-p.person_heading, p.person { float: left; width: 60%; font-size: 1.3em; overflow: hidden; padding: .2em 0; }
+p.person_heading, p.person { float: left; width: 50%; font-size: 1.3em; overflow: hidden; padding: .2em 0; }
 p.team1  { float: left; font-size: 1em; width: 13%; }
 p.team2  { float: left; font-size: 1em; width: 13%; }
 
