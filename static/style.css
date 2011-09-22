@@ -28,7 +28,7 @@ li.predictions { padding: .2em 0; }
 p.person_heading { color: white; } /* match background... there for space and not seen */
 p.team1_heading, p.team2_heading  { float: left; font-size: 1.5em; line-height: .8em; width: 13%; }
 
-p.person_heading, p.person { float: left; width: 50%; font-size: 1.3em; overflow: hidden; padding: .2em 0; }
+p.person_heading, p.person { float: left; width: 65%; font-size: 1.3em; overflow: hidden; padding: .2em 0; }
 p.team1  { float: left; font-size: 1em; width: 13%; }
 p.team2  { float: left; font-size: 1em; width: 13%; }
 
@@ -48,7 +48,7 @@ li:after {
     clear: both;
     visibility: hidden;
 }
-div#content { width: 80%; margin: 0 0 0 3em; }
+div#content { width: 100%; margin: 0; }
 
 h1.inset, h2.inset, h3.inset { text-indent:-.5em; }
 
