@@ -151,7 +151,7 @@ def email_reminder():
 Thank you for getting your prediction in. You're a true fan.
 
 As a reminder, you put %s(%d) - %s(%d)
-If you need to update it, you still can at %s%s
+If you need to update it, you still can at %s%s/
 
 But what I really need from you is to help bug the people who haven't put their predictions in yet.
 Please go nag:
@@ -400,6 +400,7 @@ class PredictionsURL:
     def GET(self, home_vs_away):
         try:
             hometeam, awayteam = home_vs_away.split('_vs_')
+            session.commit() # fixes caching?
             game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
             predictions = game.predictions
 
@@ -414,24 +415,27 @@ class PredictionsURL:
                 except (Exception), e:
                     pass
 
-            # Need to know if the game has started or not.
+            # Need to know if the game has started or not. Also need to know if the game is done.
             game.started = now > game.gametime
+            game.done = game.hscore != -1
 
-            #td = datetime.now() - game.gametime
-            #if (td.seconds + td.days * 24 * 3600) > 14400: # 4hours past gametime?
-            if (game.hscore != -1):
-                game.done = True
+            if game.done or (game.started and game.ingamescores):
+                if game.done:
+                    hscore = game.hscore
+                    ascore = game.ascore
+                else:
+                    hscore = game.ingamescores[-1].home
+                    ascore = game.ingamescores[-1].away
+
                 for i in range(len(predictions)):
                     p = predictions[i]
-                    p.delta = abs(game.hscore - p.home) + abs(game.ascore - p.away)
+                    p.delta = abs(hscore - p.home) + abs(ascore - p.away)
                     predictions[i] = p
                 predictions.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
                 # Statistics
                 game.mean    = sum([ pdt.delta for pdt in predictions ]) / len(predictions)
                 game.stddev  = sqrt(sum([ pow(pdt.delta - game.mean, 2) for pdt in predictions ]) / len(predictions))
                 game.penalty = int(game.mean + (game.stddev / 2))
-            else:
-                game.done = False
 
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
@@ -444,6 +448,31 @@ class PredictionsURL:
             print 'print_exc():'
             traceback.print_exc(file=sys.stdout)
             return 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
+
+    def POST(self, home_vs_away):
+        try:
+            i = web.input()
+            hometeam, awayteam = home_vs_away.split('_vs_')
+
+            # form data
+            homescore = int(i.homescore)
+            awayscore = int(i.awayscore)
+            comment = i.comment[:50] # match the varchar length
+            password = i.password
+
+            # supplementary info
+            session.commit() # fixes caching?
+            person = Person.query.filter_by(password=password).one()
+            game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+
+            # Insert InGameScores commentary by our fellow player
+            InGameScores(home=homescore, away=awayscore, comment=comment, person=person, game=game)
+            session.commit()
+
+        except (Exception), e:
+            return 'DEBUG: Got an error: %s' % (str(e))
+            pass
+        return web.seeother('http://%s/%s/' % (HTTPHOST, home_vs_away))
 
 class CreategameURL:
     def GET(self, home, away, year, mon, day, hour, min):

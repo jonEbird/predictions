@@ -22,22 +22,24 @@ p.disclaimer { color: green; font-size:90%; }
    predictions
    --------------- */
 
-li { margin: 1em 0; }
-li.predictions { padding: .2em 0; }
+li { margin: .4em 0; }
+li.prediction { padding: .5em 0 0 0; }
 
-p.person_heading { color: white; } /* match background... there for space and not seen */
-p.team1_heading, p.team2_heading  { float: left; font-size: 1.5em; line-height: .8em; width: 13%; }
+/* u_heading      team_heading  team_heading  team_heading
+   user           team1         team2         delta
+   65               10            10            10  */
+p.person_heading, p.team_heading, p.person { width: 65%; }
+p.team_heading, p.team1, p.team2, p.delta  { width: 10%; text-align: center; }
 
-p.person_heading, p.person { float: left; width: 65%; font-size: 1.3em; overflow: hidden; padding: .2em 0; }
-p.team1  { float: left; font-size: 1em; width: 13%; }
-p.team2  { float: left; font-size: 1em; width: 13%; }
+p.team_heading  { float: left; font-size: 1.4em; line-height: 1.0em; padding: 0 .1em; }
 
-p.team1_heading, p.team2_heading, p.team1, p.team2 { width: 15%; text-align: center;}
-p.delta { text-align: left; color: red; font-size: 1.5em; margin: 0 0 0 1em; }
+p.person_heading, p.person { float: left; font-size: 1.3em; overflow: hidden; padding: .2em 0; }
+p.team1, p.team2, p.delta, p.delta  { float: left; font-size: 1em; }
 
+p.team_heading span, p.delta { font-size: .8em; }
 p.team1, p.team2, p.delta { font-family: "Comic Sans MS", cursive; }
-
-
+p.delta { color: red; }
+p.person_heading { color: white; } /* match background... there for space and not seen */
 p.person a { text-decoration: none; }
 span.name { font-size: 1.2em; color: red; }
 
@@ -49,6 +51,8 @@ li:after {
     visibility: hidden;
 }
 div#content { width: 100%; margin: 0; }
+
+ul.scorehelp { text-indent:.5em; font-size: .8em; }
 
 h1.inset, h2.inset, h3.inset { text-indent:-.5em; }
 
@@ -63,6 +67,8 @@ ul#stats_text { float: left; margin: 0 3em 0 0; }
 */
 
 div#odds { background:white; font-size:.8em; }
+
+div#scorehelp h3 { margin-top: 1em; }
 
 /* ---------------------------------------------------------------------- */
 

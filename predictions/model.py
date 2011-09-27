@@ -15,6 +15,7 @@ class Game(Entity):
     gametime    = Field(DateTime)
     odds        = Field(String)
     predictions = OneToMany('Predictions')
+    ingamescores = OneToMany('InGameScores')
 
     def __repr__(self):
         return '<Game %s vs. %s on %s>' % (self.hometeam, self.awayteam, self.gametime)
@@ -30,6 +31,17 @@ class Predictions(Entity):
     def __repr__(self):
         return '<Prediction by %s for the %s game>' % (self.person.name, self.game)
 
+class InGameScores(Entity):
+    using_options(tablename='ingamescores')
+    home    = Field(Integer)
+    away    = Field(Integer)
+    comment = Field(String(100))
+    person  = ManyToOne('Person')
+    game    = ManyToOne('Game')
+
+    def __repr__(self):
+        return '<InGameScores %s(%d) - %s(%d) "%s">' % (self.game.hometeam, self.home, self.game.awayteam, self.away, self.comment)
+
 class Person(Entity):
     using_options(tablename='people')
     name        = Field(String(60))
@@ -39,6 +51,7 @@ class Person(Entity):
     password    = Field(String(60))
     mugshot     = Field(String(50))
     predictions = OneToMany('Predictions')
+    predictions = OneToMany('InGameScores')
 
     def __repr__(self):
         return '<Person %s>' % self.name

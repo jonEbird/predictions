@@ -28,16 +28,44 @@ $def with (predictions, game, undecided)
 $if game.odds:
     <div id="odds">$:game.odds</div>
 <ul>
-  <li>
+$if game.started and not game.done:
+    <div id="scorehelp">
+    <h3>Help keep track of the game?</h3>
+    <form method="post" action="" class="curscore" name="score">
+    <table cellspacing="0">
+        <tr>
+            <td class="lbl" >$game.hometeam</td>
+            <td class="inp"><input type="text" name="homescore" size="3"></td>
+            <td class="lbl" >$game.awayteam</td>
+            <td class="inp"><input type="text" name="awayscore" size="3"></td>
+            <td class="lbl" >Password</td>
+            <td class="inp"><input type="password" name="password" size="15"></td>
+            <td class="lbl">Comment</td>
+            <td class="inp"><input type="text" name="comment" size="50"></td>
+            <td class="submit"><input type="submit" value="submit"></td>
+        </tr>
+    </table>
+    </form>
+    </div>
+    <div class="clear"></div>
+    <div id="ingamecommentary">
+    <ul class="scorehelp">
+    $for igs in game.ingamescores:
+        <li><p>
+        Per $igs.person.nickname $igs.game.hometeam ($igs.home) - $igs.game.awayteam ($igs.away): &quot;<i>$igs.comment</i>&quot;
+        </li>
+    </ul>
+    </div>
+<li>
 $if game.done:
     <p class="person_heading">.</p>
-    <p class="team1_heading">$game.hometeam ($game.hscore)</p>
-    <p class="team2_heading">$game.awayteam ($game.ascore)</p>
-    <p class="team2_heading">Off by...</p>
+    <p class="team_heading">$game.hometeam<br/>(<span>$game.hscore</span>)</p>
+    <p class="team_heading">$game.awayteam<br/>(<span>$game.ascore</span>)</p>
+    <p class="team_heading">&#916;</p>
 $else:
     <p class="person_heading">.</p>
-    <p class="team1_heading">$game.hometeam</p>
-    <p class="team2_heading">$game.awayteam</p>
+    <p class="team_heading">$game.hometeam</p>
+    <p class="team_heading">$game.awayteam</p>
   </li>
 $for p in predictions:
     <li class="prediction">
@@ -48,11 +76,11 @@ $for p in predictions:
     $else:
         <p class="team1">LOCKED-IN</p>
         <p class="team2">LOCKED-IN</p>
-    $if game.done:
+    $if game.done or game.ingamescores:
         <p class="delta">$p.delta</p>
     </li>
 $for p in undecided:
-    $if game.done:
+    $if game.done or game.ingamescores:
         <li class="prediction">
           <p class="person"><a href="$p.name/">$p.name.split()[0] &quot;<i>$p.nickname</i>&quot; $p.name.split()[1]</a></p>
           <p class="team1">Poo</p>
@@ -74,6 +102,16 @@ $for p in undecided:
 </ul>
 $if game.done and undecided:
     <p>* - Calculated penalty for not predicting: mean + (stddev / 2) = $game.penalty</p>
+$if game.done and game.ingamescores:
+    <div id="ingamecommentary">
+    <ul class="scorehelp">
+    <h4>Here was the in-game commentary from folks</h4>
+    $for igs in game.ingamescores:
+        <li><p>
+        Per $igs.person.nickname $igs.game.hometeam ($igs.home) - $igs.game.awayteam ($igs.away): &quot;<i>$igs.comment</i>&quot;
+        </li>
+    </ul>
+    </div>
 </div>
 
 <div id="disqus_thread"></div>
