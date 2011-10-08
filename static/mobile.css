@@ -1,3 +1,43 @@
+/* mobile styles */
+@media handheld {
+    html, body {
+	font: 12px/15px sans-serif;
+	background: #fff;
+	padding: 3px;
+	color: #000;
+	margin: 0;
+    }
+    #sidebar, #footer {
+	display: none;
+    }
+    h1, h2, h3, h4, h5, h6 {
+	font-weight: normal;
+    }
+    #content img {
+	max-width: 250px;
+    }
+    .center {
+	width: 100% !important;
+	text-align: center;
+    }
+    a:link, a:visited {
+	text-decoration: underline;
+	color: #0000CC;
+    }
+    a:hover, a:active {
+	text-decoration: underline;
+	color: #660066;
+    }
+
+}
+/* iPhone-specific styles */
+@media only screen and (max-device-width: 480px) {
+
+    html {
+	-webkit-text-size-adjust: none;
+    }
+
+}
 
 /*
    general
@@ -5,7 +45,8 @@
 
 * { padding: 0; margin: 0; }
 * { font-family: sans-serif, arial, "lucida console" }
-body { font-family: verdana, arial, sans-serif; font-size:120%; margin:0.5em 1em; background:white;}
+body { font-family: verdana, arial, sans-serif; font-size:80%; margin:0.5em 1em; background:white;}
+h1 { font-size: .5em; }
 a:link { color: black; }
 a:visited { color: black; }
 a:hover { color: red; }
@@ -28,12 +69,12 @@ li.prediction { padding: .25em 0 0 0; }
 /* u_heading      team_heading  team_heading  team_heading
    user           team1         team2         delta
    65               10            10            10  */
-p.person_heading, p.team_heading, p.person { width: 65%; }
+p.person_heading, p.team_heading, p.person { width: 65%; clear: both; }
 p.team_heading, p.team1, p.team2, p.delta  { width: 10%; text-align: center; }
 
 p.team_heading  { float: left; font-size: .7em; line-height: .5em; padding: 0 .05em; }
 
-p.person_heading, p.person { float: left; font-size: .7em; overflow: hidden; padding: .1em 0; }
+p.person_heading, p.person { float: left; font-size: .7em; overflow: hidden; padding: .1em 0; clear: both; }
 p.team1, p.team2, p.delta, p.delta  { float: left; font-size: .5em; }
 
 p.team_heading span, p.delta { font-size: .4em; }
