@@ -1,0 +1,66 @@
+
+/*
+   general
+   --------------- */
+
+* { padding: 0; margin: 0; }
+* { font-family: sans-serif, arial, "lucida console" }
+body { font-family: verdana, arial, sans-serif; font-size:120%; margin:0.5em 1em; background:white;}
+a:link { color: black; }
+a:visited { color: black; }
+a:hover { color: red; }
+p { white-space: nowrap }
+p code { font-family: monospace }
+li { list-style-type: none; line-height: 0.5em;}
+div#clearinghouse {clear: both;}
+
+img.winningpic { float: left; }
+/* img.winningpic:hover { height: 150px; } */
+span.stats { color: green; }
+p.disclaimer { color: green; font-size:90%; }
+/*
+   predictions
+   --------------- */
+
+li { margin: .2em 0; }
+li.prediction { padding: .25em 0 0 0; }
+
+/* u_heading      team_heading  team_heading  team_heading
+   user           team1         team2         delta
+   65               10            10            10  */
+p.person_heading, p.team_heading, p.person { width: 65%; }
+p.team_heading, p.team1, p.team2, p.delta  { width: 10%; text-align: center; }
+
+p.team_heading  { float: left; font-size: .7em; line-height: .5em; padding: 0 .05em; }
+
+p.person_heading, p.person { float: left; font-size: .7em; overflow: hidden; padding: .1em 0; }
+p.team1, p.team2, p.delta, p.delta  { float: left; font-size: .5em; }
+
+p.team_heading span, p.delta { font-size: .4em; }
+p.team1, p.team2, p.delta { font-family: "Comic Sans MS", cursive; }
+p.delta { color: red; }
+p.person_heading { color: white; } /* match background... there for space and not seen */
+p.person a { text-decoration: none; }
+span.name { font-size: .6em; color: red; }
+
+li:after {
+    content: ".";
+    display: block;
+    height: 0;
+    clear: both;
+    visibility: hidden;
+}
+div#content { width: 100%; margin: 0; }
+
+ul.scorehelp { text-indent:.25em; font-size: .4em; }
+
+h1.inset, h2.inset, h3.inset { text-indent:-.25em; }
+
+ul#stats_text { float: left; margin: 0 1em 0 0; }
+
+div#odds { background:white; font-size:.4em; }
+
+div#scorehelp h3 { margin-top: 0.5em; }
+
+/* ---------------------------------------------------------------------- */
+
