@@ -1,6 +1,6 @@
 #!/bin/env python
 
-import os, sys, smtplib, traceback
+import os, sys, ConfigParser, smtplib, traceback
 from datetime import datetime, timedelta
 from math import sqrt, pow
 
@@ -14,21 +14,16 @@ from utils.sms import *
 from urllib import quote
 from email.mime.text import MIMEText
 
-# Defaults
-mpass = 'bingo'
-mode  = 'dev'
-EMAILADDR = 'jon@buckeyepredictions.com'
-HTTPHOST  = 'buckeyepredictions.com/predictions'
-try:
-    mpass = open('password.txt', 'r').readline().strip()
-except (IOError), e:
-    print """WARNING: Guess we're sticking with the default password of 'bingo'. Please add a one-liner "password.txt" file."""
-
-try:
-    mode = open('mode.txt', 'r').readline().strip()
-except (IOError), e:
-    print """WARNING: Guess we'll run in "dev" mode. Please add a one-liner "mode.txt" file."""
-if mode == 'dev': HTTPHOST = 'devbuckeyepredictions.com/predictions'
+#-Configs------------------------------------------
+defaults = { 'mpass': 'bingo', 'mode': 'dev',
+             'EMAILADDR': 'jon@buckeyepredictions.com',
+             'HTTPHOST': 'localhost/predictions',
+             }
+config = ConfigParser.ConfigParser(defaults = defaults)
+config.read(['predictions.config', 'predictions/predictions.config'])
+if not config.has_section('Predictions') or not config.has_section('Testing'):
+    print "Error: Need to configure [predictions/]predictions.config with at least 'Predictions' and 'Testing' sections."
+    sys.exit(-1)
 
 #-Web----------------------------------------------
 
@@ -68,9 +63,11 @@ def sms_message(msg):
        %{name_url} = name from DB urllib.quote'd
        %{nickname} = nickname from DB
     """
-    sms = SMS()
+    if not config.has_section('Twilio'):
+        return
+    sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'))
     for person in Person.query.all():
-        if mode == 'dev' and person.name != "Jon Miller": continue
+        if config.get('Predictions', 'mode') == 'dev' and person.name != config.get('Testing', 'testing_name'): continue
         sms.send(person.phonenumber, custom_msg(msg, person))
     del sms
 
@@ -81,9 +78,9 @@ def email_message(subject, msg):
        %{nickname} = nickname from DB
     """
     for person in Person.query.all():
-        if mode == 'dev' and person.name != "Jon Miller": continue
+        if config.get('Predictions', 'mode') == 'dev' and person.name != config.get('Testing', 'testing_name'): continue
 
-        me = EMAILADDR
+        me = config.get('Predictions', 'EMAILADDR')
         toaddr = person.email.split(',')
 
         mailmsg = MIMEText(custom_msg(msg, person))
@@ -112,17 +109,17 @@ def sms_reminder():
             message = msg
             break
 
-    if message:
-        sms = SMS()
+    if message and config.has_section('Twilio'):
+        sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'))
         for game in Game.query.filter(and_(Game.gametime < midnight_tomorrow, Game.gametime > now)).all():
 
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
 
-            GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
+            GAME_URL = 'http://%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), quote(game.hometeam), quote(game.awayteam))
 
             for person in undecided:
-                if mode == 'dev' and person.name != "Jon Miller": continue
+                if config.get('Predictions', 'mode') == 'dev' and person.name != config.get('Testing', 'testing_name'): continue
 
                 #print 'sms.send(%s, %s)' % (person.phonenumber, '%s %s%s/' % (message, GAME_URL, quote(person.name)) )
                 sms.send(person.phonenumber, '%s %s%s/' % (message, GAME_URL, quote(person.name)) )
@@ -140,12 +137,12 @@ def email_reminder():
             # FIXME: Don't really like this query but it's working...
             undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
 
-            GAME_URL = 'http://%s/%s_vs_%s/' % (HTTPHOST, quote(game.hometeam), quote(game.awayteam))
+            GAME_URL = 'http://%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), quote(game.hometeam), quote(game.awayteam))
 
             if undecided:
                 for pdt in game.predictions:
                     person = pdt.person
-                    if mode == 'dev' and person.name != "Jon Miller": continue
+                    if config.get('Predictions', 'mode') == 'dev' and person.name != config.get('Testing', 'testing_name'): continue
 
                     body = """
 Thank you for getting your prediction in. You're a true fan.
@@ -161,7 +158,7 @@ Thank you,
 The Gamemaster.
 """ % (game.hometeam, pdt.home, game.awayteam, pdt.away, GAME_URL, quote(person.name), ', '.join([ p.name for p in undecided ]))
 
-                    me = EMAILADDR
+                    me = config.get('Predictions', 'EMAILADDR')
                     toaddr = person.email.split(',')
 
                     msg = MIMEText(body)
@@ -175,7 +172,7 @@ The Gamemaster.
                     s.quit()
 
             for person in undecided:
-                if mode == 'dev' and person.name != "Jon Miller": continue
+                if config.get('Predictions', 'mode') == 'dev' and person.name != config.get('Testing', 'testing_name'): continue
 
                 body = """
 Need to get your prediction in for the %s vs. %s game.
@@ -189,7 +186,7 @@ And good luck,
 The Gamemaster.'
 """ % (game.hometeam, game.awayteam, GAME_URL, quote(person.name))
 
-                me = EMAILADDR
+                me = config.get('Predictions', 'EMAILADDR')
                 toaddr = person.email.split(',')
 
                 msg = MIMEText(body)
@@ -218,16 +215,16 @@ def email_predictions(home_vs_away):
 
         msg = MIMEText(body)
         msg['Subject'] = 'Predictions on the %s vs. %s Game' % (game.hometeam, game.awayteam)
-        msg['From'] = EMAILADDR
-        msg['To']   = EMAILADDR
-        if mode == 'dev':
-            bcc = ['jonEbird@gmail.com']
+        msg['From'] = config.get('Predictions', 'EMAILADDR')
+        msg['To']   = config.get('Predictions', 'EMAILADDR')
+        if config.get('Predictions', 'mode') == 'dev':
+            bcc = [config.get('Testing', 'testing_email')]
         else:
             bcc = (','.join([ pdt.person.email for pdt in predictions ])).split(',')
 
         s = smtplib.SMTP()
         s.connect()
-        s.sendmail(EMAILADDR, bcc, msg.as_string())
+        s.sendmail(config.get('Predictions', 'EMAILADDR'), bcc, msg.as_string())
         s.quit()
 
     except (Exception), e:
@@ -248,11 +245,13 @@ def sms_gameresults(home_vs_away):
         winner = predictions[0]
         ties = [ pdt.person.name for pdt in predictions if pdt.delta == winner.delta ]
 
-        sms = SMS()
+        if not config.has_section('Twilio'):
+            return
+        sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'))
 
         for pdt in predictions:
             person = pdt.person
-            if mode == 'dev' and person.name != "Jon Miller":
+            if config.get('Predictions', 'mode') == 'dev' and person.name != config.get('Testing', 'testing_name'):
                 continue
 
             if len(ties) > 1:
@@ -265,7 +264,7 @@ def sms_gameresults(home_vs_away):
                     text = 'Lucky SOB, you win coffee by being off by %d!' % (pdt.delta)
                 else:
                     text = '%s wins coffee being %d off. You were %d off, loser.' % (winner.person.name, winner.delta, pdt.delta)
-            text += ' http://%s/%s/' % (HTTPHOST, home_vs_away)
+            text += ' http://%s/%s/' % (config.get('Predictions', 'HTTPHOST'), home_vs_away)
 
             sms.send(pdt.person.phonenumber, text)
 
@@ -324,10 +323,10 @@ class AdminURL:
             return render.admin(games, myform, msg)
 
         #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, input.auth)
-        if i.password == mpass:
+        if i.password == config.get('Predictions', 'mpass'):
             nextgame = Game(hometeam=i.Home, awayteam=i.Away, gametime=gametime, hscore=-1, ascore=-1)
             session.commit()
-            return web.seeother('http://%s/%s_vs_%s/' % (HTTPHOST, quote(i.Home), quote(i.Away)))
+            return web.seeother('http://%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), quote(i.Home), quote(i.Away)))
         else:
             return 'Sorry, can not help you. That is not the right password.'
 
@@ -472,7 +471,7 @@ class PredictionsURL:
         except (Exception), e:
             return 'DEBUG: Got an error: %s' % (str(e))
             pass
-        return web.seeother('http://%s/%s/' % (HTTPHOST, home_vs_away))
+        return web.seeother('http://%s/%s/' % (config.get('Predictions', 'HTTPHOST'), home_vs_away))
 
 class CreategameURL:
     def GET(self, home, away, year, mon, day, hour, min):
@@ -480,10 +479,10 @@ class CreategameURL:
         i = web.input(auth="bogus")
         gametime = datetime(int(year), int(mon), int(day), int(hour), int(min))
         #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, i.auth)
-        if i.auth == mpass:
+        if i.auth == config.get('Predictions', 'mpass'):
             nextgame = Game(hometeam=home, awayteam=away, gametime=gametime, hscore=-1, ascore=-1)
             session.commit()
-            return web.seeother('http://%s/%s_vs_%s/' % (HTTPHOST, home, away))
+            return web.seeother('http://%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), home, away))
         else:
             return 'Sorry, can not help you.'
 
@@ -510,7 +509,7 @@ class FinalscoreURL:
             hometeam, awayteam = game.split('_vs_')
             g = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
 
-            if i.password == mpass:
+            if i.password == config.get('Predictions', 'mpass'):
                 g.hscore = int(getattr(i,hometeam))
                 g.ascore = int(getattr(i,awayteam))
                 session.commit()
@@ -518,7 +517,7 @@ class FinalscoreURL:
                 # Send out a SMS message about the winners
                 sms_gameresults(game)
 
-                return web.seeother('http://%s/%s/' % (HTTPHOST, game))
+                return web.seeother('http://%s/%s/' % (config.get('Predictions', 'HTTPHOST'), game))
 
             else:
                 myform = web.form.Form(
@@ -559,14 +558,14 @@ class PredictURL:
 
         # first of all, you can not make predictions when the game is on
         if datetime.now() > game.gametime:
-            return web.seeother('http://%s/%s/' % (HTTPHOST, home_vs_away))
+            return web.seeother('http://%s/%s/' % (config.get('Predictions', 'HTTPHOST'), home_vs_away))
 
         # also, you can not make a prediction once all of the predictions are in.
         undecided = Person.query.filter(~Person.name.in_([ pdt.person.name for pdt in game.predictions ])).all()
         if not undecided:
-            return web.seeother('http://%s/%s/' % (HTTPHOST, home_vs_away))
+            return web.seeother('http://%s/%s/' % (config.get('Predictions', 'HTTPHOST'), home_vs_away))
 
-        if p.password == i.password or i.password == mpass:
+        if p.password == i.password or i.password == config.get('Predictions', 'mpass'):
             # Is there already a prediction out there for this?
             q = Predictions.query.filter_by(person=p).filter_by(game=game)
             if q.count():
@@ -585,7 +584,7 @@ class PredictURL:
             if showpredictions:
                 email_predictions(home_vs_away)
 
-            return web.seeother('http://%s/%s/' % (HTTPHOST, home_vs_away))
+            return web.seeother('http://%s/%s/' % (config.get('Predictions', 'HTTPHOST'), home_vs_away))
         else:
             myform = web.form.Form(
                 web.form.Textbox(hometeam, value=getattr(i,hometeam)),
