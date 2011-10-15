@@ -85,7 +85,7 @@ $for p in predictions:
 $for p in undecided:
     $if game.done or game.ingamescores:
         <li class="prediction">
-          <p class="person"><img class="winningpic" src="/$p.person.mugshot" height="50" />
+          <p class="person"><img class="winningpic" src="/$p.mugshot" height="50" />
             <a href="$p.name/">$p.name.split()[0] &quot;<i>$p.nickname</i>&quot; $p.name.split()[1]</a>
 	  </p>
           <p class="team1">Poo</p>
@@ -94,7 +94,7 @@ $for p in undecided:
         </li>
     $elif game.started:
         <li>
-          <p class="person"><img class="winningpic" src="/$p.person.mugshot" height="50" />
+          <p class="person"><img class="winningpic" src="/$p.mugshot" height="50" />
             <a href="$p.name/">$p.name.split()[0] &quot;<i>$p.nickname</i>&quot; $p.name.split()[1]</a>
 	  </p>
           <p class="team1">Poo</p>
