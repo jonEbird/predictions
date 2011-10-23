@@ -70,8 +70,10 @@ $else:
   </li>
 $for p in predictions:
     <li class="prediction">
-    <p class="person"><img class="winningpic" src="/$p.person.mugshot" height="50" />
+    <p class="person"><img class="winningpic" src="/$p.person.mugshot" />
       <a href="$p.person.name/">$p.person.name.split()[0] &quot;<i>$p.person.nickname</i>&quot; $p.person.name.split()[1]</a>
+      $if p.person.winningcoffee:
+          <img class="coffee" src="/static/coffee.jpg" />
     </p>
     $if game.showpredictions:
         <p class="team1">$p.home</p>
@@ -85,7 +87,7 @@ $for p in predictions:
 $for p in undecided:
     $if game.done or game.ingamescores:
         <li class="prediction">
-          <p class="person"><img class="winningpic" src="/$p.mugshot" height="50" />
+          <p class="person"><img class="winningpic" src="/$p.mugshot" />
             <a href="$p.name/">$p.name.split()[0] &quot;<i>$p.nickname</i>&quot; $p.name.split()[1]</a>
 	  </p>
           <p class="team1">Poo</p>
@@ -94,7 +96,7 @@ $for p in undecided:
         </li>
     $elif game.started:
         <li>
-          <p class="person"><img class="winningpic" src="/$p.mugshot" height="50" />
+          <p class="person"><img class="winningpic" src="/$p.mugshot" />
             <a href="$p.name/">$p.name.split()[0] &quot;<i>$p.nickname</i>&quot; $p.name.split()[1]</a>
 	  </p>
           <p class="team1">Poo</p>

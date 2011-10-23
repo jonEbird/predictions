@@ -50,6 +50,7 @@ class Person(Entity):
     phonenumber = Field(String(15))
     password    = Field(String(60))
     mugshot     = Field(String(50))
+    betting     = Field(Boolean)
     predictions = OneToMany('Predictions')
     predictions = OneToMany('InGameScores')
 

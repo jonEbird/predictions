@@ -55,7 +55,8 @@ p code { font-family: monospace }
 li { list-style-type: none; line-height: 0.5em;}
 div#clearinghouse {clear: both;}
 
-img.winningpic { float: left; }
+img.winningpic { height: 50px; float: left; }
+img.coffee { height: 35px; }
 /* img.winningpic:hover { height: 150px; } */
 span.stats { color: green; }
 p.disclaimer { color: green; font-size:90%; }

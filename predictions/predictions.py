@@ -72,7 +72,7 @@ def sms_message(msg):
     del sms
 
 def email_message(subject, msg):
-    """Craft a note to be SMS'ed to everyone. Some smart substitutions can occur such as:
+    """Craft a note to be emailed to everyone. Some smart substitutions can occur such as:
        %{name}     = name from DB
        %{name_url} = name from DB urllib.quote'd
        %{nickname} = nickname from DB
@@ -240,10 +240,23 @@ def sms_gameresults(home_vs_away):
         for i in range(len(predictions)):
             p = predictions[i]
             p.delta = abs(game.hscore - p.home) + abs(game.ascore - p.away)
+            p.person.winningcoffee = False
             predictions[i] = p
         predictions.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
         winner = predictions[0]
         ties = [ pdt.person.name for pdt in predictions if pdt.delta == winner.delta ]
+        # coffee gamblers
+        betters = [ pdt for pdt in predictions if pdt.person.betting ]
+        coffee_ties = [] # In case you have no betters
+        if betters:
+            coffee_delta = betters[0].delta
+            for i in range(len(betters)):
+                p = betters[i]
+                if p.delta == coffee_delta:
+                    p.person.winningcoffee = True
+                betters[i] = p
+            coffee_ties = [ pdt.person for pdt in betters if pdt.delta == coffee_delta ]
+        coffee_names = ' & '.join([ p.name for p in coffee_ties ])
 
         if not config.has_section('Twilio'):
             return
@@ -256,14 +269,19 @@ def sms_gameresults(home_vs_away):
 
             if len(ties) > 1:
                 if person.name in ties:
-                    text = 'Lucky SOB. You and %s win coffee by tying at being %d off!' % (' & '.join([ o for o in ties if o != person.name]), winner.delta)
+                    text = 'Lucky SOB. You and %s win by tying at being %d off!' % (' & '.join([ o for o in ties if o != person.name]), winner.delta)
                 else:
-                    text = 'A tie! %s win coffee being %d off. You were %d off, loser.' % (' & '.join(ties), winner.delta, pdt.delta)
+                    text = 'A tie! %s win being %d off. You were %d off, loser.' % (' & '.join(ties), winner.delta, pdt.delta)
             else:
                 if person == winner.person:
-                    text = 'Lucky SOB, you win coffee by being off by %d!' % (pdt.delta)
+                    text = 'Lucky SOB, you win by being off by %d!' % (pdt.delta)
                 else:
-                    text = '%s wins coffee being %d off. You were %d off, loser.' % (winner.person.name, winner.delta, pdt.delta)
+                    text = '%s wins being %d off. You were %d off, loser.' % (winner.person.name, winner.delta, pdt.delta)
+            # Add the coffee winners and game URL
+            if person in coffee_ties:
+                text += ' Go collect your coffee winnings.'
+            elif person.betting:
+                text += ' You owe %s coffee.' % coffee_names
             text += ' http://%s/%s/' % (config.get('Predictions', 'HTTPHOST'), home_vs_away)
 
             sms.send(pdt.person.phonenumber, text)
@@ -376,6 +394,14 @@ class GamesURL:
             game.mugshots = [ pdt.person.mugshot for pdt in predictions if pdt.delta == winner.delta ]
             game.winningnames = ' & '.join([ pdt.person.name for pdt in predictions if pdt.delta == winner.delta ])
 
+            # Ah, but what about the coffee betters and not the funsies?
+            betters = [ pdt for pdt in predictions if pdt.person.betting ]
+            coffee_winner = betters[0]
+            if winner != coffee_winner:
+                game.coffee_winningnames = ' & '.join([ pdt.person.name for pdt in betters if pdt.delta == coffee_winner.delta ])
+            else:
+                game.coffee_winningnames = ''
+
             # Statistics
             game.mean    = sum([ pdt.delta for pdt in predictions ]) / len(predictions)
             game.stddev  = int(sqrt(sum([ pow(pdt.delta - game.mean, 2) for pdt in predictions ]) / len(predictions)))
@@ -429,8 +455,17 @@ class PredictionsURL:
                 for i in range(len(predictions)):
                     p = predictions[i]
                     p.delta = abs(hscore - p.home) + abs(ascore - p.away)
+                    p.person.winningcoffee = False
                     predictions[i] = p
                 predictions.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
+                betters = [ pdt for pdt in predictions if pdt.person.betting ]
+                if betters:
+                    coffee_delta = betters[0].delta
+                    for i in range(len(betters)):
+                        p = betters[i]
+                        if p.delta == coffee_delta:
+                            p.person.winningcoffee = True
+                        betters[i] = p
                 # Statistics
                 game.mean    = sum([ pdt.delta for pdt in predictions ]) / len(predictions)
                 game.stddev  = sqrt(sum([ pow(pdt.delta - game.mean, 2) for pdt in predictions ]) / len(predictions))
@@ -456,7 +491,7 @@ class PredictionsURL:
             # form data
             homescore = int(i.homescore)
             awayscore = int(i.awayscore)
-            comment = i.comment[:50] # match the varchar length
+            comment = i.comment[:100] # match the varchar length
             password = i.password
 
             # supplementary info
@@ -526,8 +561,7 @@ class FinalscoreURL:
                     web.form.Password('password', value=""),
                     )
 
-                return render.predict(g, myform, msg='Wrong password. Try again.')
-                #return
+                return render.finalscore(hometeam, awayteam, myform, msg='Wrong password. Try again.')
 
         except (Exception), e:
             return 'Seriously, you\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))

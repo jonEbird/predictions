@@ -32,8 +32,12 @@ $for game in games:
     $if game.done:
         <li><p class="game">
         $for mugshot in game.mugshots:
-            <img class="winningpic" src="/$mugshot" height="50" />
-        $game.winningnames wins coffee!
+            <img class="winningpic" src="/$mugshot" />
+	$if game.coffee_winningnames:
+            $game.winningnames wins the prediction!
+            But $game.coffee_winningnames wins coffee! <img class="coffee" src="/static/coffee.jpg" /></br>
+        $else:
+            $game.winningnames wins coffee! <img class="coffee" src="/static/coffee.jpg" /></br>
         Final score on $game.gametime.strftime('%b %d') was <a href="$game.ahref/">$game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)</a>
         [<span class="stats">$game.mean +- $game.stddev</span>]
         </p></li>
