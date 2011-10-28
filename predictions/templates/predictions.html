@@ -72,7 +72,7 @@ $for p in predictions:
     <li class="prediction">
     <p class="person"><img class="winningpic" src="/$p.person.mugshot" />
       <a href="$p.person.name/">$p.person.name.split()[0] &quot;<i>$p.person.nickname</i>&quot; $p.person.name.split()[1]</a>
-      $if p.person.winningcoffee:
+      $if game.showpredictions and game.ingamescores and p.person.winningcoffee:
           <img class="coffee" src="/static/coffee.jpg" />
     </p>
     $if game.showpredictions:
