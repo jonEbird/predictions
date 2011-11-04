@@ -24,7 +24,7 @@ p.disclaimer { color: green; font-size:90%; }
    --------------- */
 
 li { margin: .4em 0; }
-li.prediction { padding: .5em 0 0 0; }
+li.prediction { padding: .5em 0 0 0; margin: 0; }
 
 /* u_heading      team_heading  team_heading  team_heading
    user           team1         team2         delta
@@ -34,7 +34,7 @@ p.team_heading, p.team1, p.team2, p.delta  { width: 10%; text-align: center; }
 
 p.team_heading  { float: left; font-size: 1.4em; line-height: 1.0em; padding: 0 .1em; }
 
-p.person_heading, p.person { float: left; font-size: 1.3em; overflow: hidden; padding: .2em 0; }
+p.person_heading, p.person { float: left; font-size: 1.3em; overflow: hidden; padding: 0em; }
 p.team1, p.team2, p.delta, p.delta  { float: left; font-size: 1em; }
 
 p.team_heading span, p.delta { font-size: .8em; }
