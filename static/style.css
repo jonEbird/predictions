@@ -44,6 +44,8 @@ p.person_heading { color: white; } /* match background... there for space and no
 p.person a { text-decoration: none; }
 span.name { font-size: 1.2em; color: red; }
 
+p.adminhelp { font-size: .5em; }
+
 li:after {
     content: ".";
     display: block;

@@ -65,7 +65,7 @@ p.disclaimer { color: green; font-size:90%; }
    --------------- */
 
 li { margin: .2em 0; }
-li.prediction { padding: .25em 0 0 0; }
+li.prediction { padding: .25em 0 0 0; margin: 0; }
 
 /* u_heading      team_heading  team_heading  team_heading
    user           team1         team2         delta
