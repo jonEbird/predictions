@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import os, sys, urllib, re
-from lxml.html import fromstring, tostring
+from lxml.html import parse, tostring
 
 ODDS_URL = 'http://sportsdirect.usatoday.com/odds/usatoday/ncaaf.aspx'
 TEAM_NICKS = {'OSU': 'Ohio State'}
@@ -12,8 +12,8 @@ def get_odds(home_vs_away):
     hometeam = TEAM_NICKS.get(hometeam, hometeam)
     awayteam = TEAM_NICKS.get(awayteam, awayteam)
 
-    content = urllib.urlopen(ODDS_URL).read()
-    doc = fromstring(content)
+    doc = parse(urllib.urlopen(ODDS_URL)).getroot()
+
     #doc.make_links_absolute(url)
 
     scs = doc.find_class("small-copy-sans")
