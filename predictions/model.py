@@ -1,5 +1,5 @@
 from elixir import *
-from sqlalchemy import and_
+from sqlalchemy import and_, func
 
 #-Database-----------------------------------------
 
@@ -13,6 +13,7 @@ class Game(Entity):
     hscore      = Field(Integer)
     ascore      = Field(Integer)
     gametime    = Field(DateTime)
+    season      = Field(Integer)
     odds        = Field(String)
     predictions = OneToMany('Predictions')
     ingamescores = OneToMany('InGameScores')
@@ -69,3 +70,9 @@ def getgamebyversus(home_vs_away):
         return game
     except (Exception), e:
         return ''
+
+def current_season():
+    return session.query(func.max(Game.season).select()).one()[0]
+
+def get_seasons():
+    return sorted([ x[0] for x in session.query(func.distinct(Game.season).select()).all() ])

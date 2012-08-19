@@ -1,4 +1,4 @@
-$def with (games, people, charts)
+$def with (games, people, names, pindex, charts, selected_season, seasons)
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
     "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -19,10 +19,36 @@ $def with (games, people, charts)
     var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
   })();
 </script>
+<script type="text/javascript" src="https://www.google.com/jsapi"></script>
+<script type="text/javascript">
+    google.load("visualization", "1", {packages:["corechart"]});
+    google.setOnLoadCallback(drawChart);
+    function drawChart() {
+        var data = new google.visualization.DataTable();
+        data.addColumn('string', 'Game');
+        $for name in names:
+            data.addColumn('number', '$name');
+        data.addRows($len(games));
+	$for i, game in enumerate(games):
+            $if game.done:
+    	        data.setValue($i, 0, '$game.opponent');
+                $for j, pdt in enumerate(game.predictions):
+                    data.setValue($i, ${pindex[pdt.person.name]+1}, ${abs(game.hscore - pdt.home) + abs(game.ascore - pdt.away)});
+
+        var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+        chart.draw(data, {width: 1000, height: 500, title: 'Prediction Performance'});
+    }
+</script>
 </head>
 <body>
 
 <div id="content">
+
+<p id="seasons">
+$for season in seasons[:-1]:
+    <a href="?season=$season">$season</a> |
+<a href="?season=$seasons[-1]">Current Season</a>
+</p>
 
 <h1 class="inset">Games We Like to Make Predictions On</h1>
 
@@ -38,11 +64,11 @@ $for game in games:
             But $game.coffee_winningnames wins coffee! <img class="coffee" src="/static/coffee.jpg" /></br>
         $else:
             $game.winningnames wins coffee! <img class="coffee" src="/static/coffee.jpg" /></br>
-        Final score on $game.gametime.strftime('%b %d') was <a href="$game.ahref/">$game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)</a>
+        Final score on $game.gametime.strftime('%b %d') was <a href="$game.ahref/?season=$selected_season">$game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)</a>
         [<span class="stats">$game.mean +- $game.stddev</span>]
         </p></li>
     $else:
-        <li><p class="game">On $game.gametime.strftime('%A, %b %d at %H:%M') <a href="$game.ahref/">$game.hometeam hosts $game.awayteam</a>. Get your predictions in!
+        <li><p class="game">On $game.gametime.strftime('%A, %b %d at %H:%M') <a href="$game.ahref/?season=$selected_season">$game.hometeam hosts $game.awayteam</a>. Get your predictions in!
     </p>
     </li>
 </ul>
@@ -54,6 +80,8 @@ $for person in people:
     <li><p> $person.name has been off by <b>$person.tot_delta</b> in the course of $person.tot_games games.</p></li>
 </ul>
 <img src="$:charts[0]" width="300" height="225" alt="Season Stats" />
+<div id="clearinghouse"></div>
+<div id="chart_div"></div>
 </div>
 
 </body>

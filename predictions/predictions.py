@@ -206,7 +206,7 @@ def email_predictions(home_vs_away):
     """Email the whole group with the predictions on the game. Do not call this if all of the predictions are not in yet."""
     try:
         hometeam, awayteam = home_vs_away.split('_vs_')
-        game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+        game = Game.query.filter(Game.season==current_season()).filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
         predictions = game.predictions
 
         body = 'Predictions are in!\n\n%s - %s\n' % (game.hometeam, game.awayteam)
@@ -233,7 +233,7 @@ def email_predictions(home_vs_away):
 def sms_gameresults(home_vs_away):
     try:
         hometeam, awayteam = home_vs_away.split('_vs_')
-        game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+        game = Game.query.filter(Game.season==current_season()).filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
         game.done = (game.hscore != -1)
 
         predictions = game.predictions
@@ -299,7 +299,8 @@ class Mugs:
 
 class AdminURL:
     def GET(self):
-        games = Game.query.order_by(Game.gametime).all()
+        i = web.input(season=current_season())
+        games = Game.query.filter(Game.season==i.season).order_by(Game.gametime).all()
         for i in range(len(games)):
             game = games[i]
             # first, it is over?
@@ -313,6 +314,7 @@ class AdminURL:
             web.form.Textbox("Home", value=""),
             web.form.Textbox("Away", value=""),
             web.form.Textbox("Datetime", value=""),
+            web.form.Textbox("Season", value=current_season()),
             web.form.Password('password', value=""),
             )
 
@@ -320,11 +322,11 @@ class AdminURL:
         return render.admin(games, myform, msg)
 
     def POST(self):
-        i = web.input(auth="bogus")
+        i = web.input(auth="bogus", season=current_season())
         gametime = dateparse(i.Datetime)
         if not gametime:
             msg = 'Sorry. Could not parse the date of "%s". Try a format of: YYYY-MM-DD HH:MM (%s)' % (str(i.Datetime), str(gametime))
-            games = Game.query.order_by(Game.gametime).all()
+            games = Game.query.filter(Game.season==i.season).order_by(Game.gametime).all()
             for n in range(len(games)):
                 game = games[n]
                 # first, it is over?
@@ -336,13 +338,14 @@ class AdminURL:
                 web.form.Textbox("Home", value=i.Home),
                 web.form.Textbox("Away", value=i.Away),
                 web.form.Textbox("Datetime", value=i.Datetime),
+                web.form.Textbox("Season", value=current_season()),
                 web.form.Password('password', value=""),
                 )
             return render.admin(games, myform, msg)
 
         #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, input.auth)
         if i.password == config.get('Predictions', 'mpass'):
-            nextgame = Game(hometeam=i.Home, awayteam=i.Away, gametime=gametime, hscore=-1, ascore=-1)
+            nextgame = Game(hometeam=i.Home, awayteam=i.Away, gametime=gametime, season=i.Season, hscore=-1, ascore=-1)
             session.commit()
             return web.seeother('http://%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), quote(i.Home), quote(i.Away)))
         else:
@@ -351,16 +354,20 @@ class AdminURL:
 
 class GamesURL:
     def GET(self):
+        i = web.input(season=current_season())
+        selected_season = i.season
         now = datetime.now()
-        games = Game.query.order_by(Game.gametime).all()
+        games = Game.query.filter(Game.season==i.season).order_by(Game.gametime).all()
         charts = []
         people = Person.query.all()
+        names = [ p.name for p in people ]
         pindex = dict([ (person.name, i) for i, person in enumerate(people) ])
         # some stats initialization
         for name, i in pindex.iteritems():
             person = people[i]
             person.tot_games = 0
             person.tot_delta = 0
+            person.game_deltas = {} # dict of {game_index: delta}
             people[i] = person
 
         for i in range(len(games)):
@@ -371,23 +378,34 @@ class GamesURL:
             game.done = (game.hscore != -1)
             # Now help out the templating engine
             game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
+            if game.hometeam == 'OSU':
+                game.opponent = game.awayteam
+            else:
+                game.opponent = game.hometeam
             games[i] = game
 
             # Update stats on completed games
             if not game.done:
                 continue
             predictions = game.predictions
-            for pdt in predictions:
+            for j in range(len(predictions)):
                 try:
+                    pdt = predictions[j]
                     delta = abs(game.hscore - pdt.home) + abs(game.ascore - pdt.away)
                     pdt.delta = delta
                     name = pdt.person.name
                     person = people[pindex[name]]
                     person.tot_games += 1
                     person.tot_delta += delta
+                    # For graphing purposes
+                    person.game_deltas[i] = delta
+                    # person
                     people[pindex[name]] = person
+                    # set prediction
+                    predictions[j] = pdt
                 except (TypeError), e:
                     continue
+            game.predictions = predictions
 
             predictions.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
             winner = predictions[0]
@@ -419,14 +437,15 @@ class GamesURL:
 
         charts.append("""http://chart.apis.google.com/chart?chxl=0:|%s&chxt=y,x&chxr=1,0,%d&chds=0,%d&chbh=a,5&chs=300x225&cht=bhg&chco=A2C180&chd=t:%s&chtt=Total+Points+Off+in+All+Games&chts=EE2525,11.5""" % ("|".join([ p.name.replace(' ', '+') for p in people.__reversed__()]), people[-1].tot_delta, people[-1].tot_delta, ','.join([ ('%d' % p.tot_delta) for p in people ])) )
 
-        return render.games(games, people, charts)
+        return render.games(games, people, names, pindex, charts, selected_season, get_seasons())
 
 class PredictionsURL:
     def GET(self, home_vs_away):
         try:
+            i = web.input(season=current_season())
             hometeam, awayteam = home_vs_away.split('_vs_')
             session.commit() # fixes caching?
-            game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+            game = Game.query.filter(Game.season==i.season).filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
             predictions = game.predictions
 
             # Do I need to fetch the odds on the game?
@@ -485,7 +504,7 @@ class PredictionsURL:
 
     def POST(self, home_vs_away):
         try:
-            i = web.input()
+            i = web.input(season=current_season())
             hometeam, awayteam = home_vs_away.split('_vs_')
 
             # form data
@@ -497,7 +516,7 @@ class PredictionsURL:
             # supplementary info
             session.commit() # fixes caching?
             person = Person.query.filter_by(password=password).one()
-            game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+            game = Game.query.filter(Game.season==i.season).filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
 
             # Insert InGameScores commentary by our fellow player
             InGameScores(home=homescore, away=awayscore, comment=comment, person=person, game=game)
@@ -524,8 +543,9 @@ class CreategameURL:
 class FinalscoreURL:
     def GET(self, game):
         try:
+            i = web.input(season = current_season())
             hometeam, awayteam = game.split('_vs_')
-            g = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+            g = Game.query.filter(Game.season==i.season).filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
 
             myform = web.form.Form(
                 web.form.Textbox(hometeam, value=""),
@@ -540,9 +560,9 @@ class FinalscoreURL:
 
     def POST(self, game):
         try:
-            i = web.input()
+            i = web.input(season = current_season())
             hometeam, awayteam = game.split('_vs_')
-            g = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+            g = Game.query.filter(Game.season==i.season).filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
 
             if i.password == config.get('Predictions', 'mpass'):
                 g.hscore = int(getattr(i,hometeam))
@@ -585,10 +605,10 @@ class PredictURL:
             return 'Sorry. You probably are looking for another game?\n%s' % (str(e))
 
     def POST(self, home_vs_away, person):
-        i = web.input(auth="bogus")
+        i = web.input(auth="bogus", season=current_season())
         p = Person.query.filter_by(name=person).one()
         hometeam, awayteam = home_vs_away.split('_vs_')
-        game = Game.query.filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
+        game = Game.query.filter(Game.season==i.season).filter_by(hometeam=hometeam).filter_by(awayteam=awayteam).one()
 
         # first of all, you can not make predictions when the game is on
         if datetime.now() > game.gametime:
