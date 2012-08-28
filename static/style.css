@@ -75,4 +75,9 @@ div#odds { background:white; font-size:.8em; }
 
 div#scorehelp h3 { margin-top: 1em; }
 
+/*
+   mugs
+   --------------- */
+div.person { float: left; margin: 1em; }
+
 /* ---------------------------------------------------------------------- */

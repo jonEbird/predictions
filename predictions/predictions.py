@@ -319,14 +319,14 @@ class AdminURL:
             )
 
         msg = ''
-        return render.admin(games, myform, msg)
+        return render.admin(group, games, myform, msg)
 
     def POST(self, group):
         i = web.input(auth="bogus", season=current_season())
+        groupplay = getgroup(group, i.season)
         gametime = dateparse(i.Datetime)
         if not gametime:
             msg = 'Sorry. Could not parse the date of "%s". Try a format of: YYYY-MM-DD HH:MM (%s)' % (str(i.Datetime), str(gametime))
-            groupplay = getgroup(group, i.season)
             betting = Betting.query.filter(Betting.group==groupplay).all()
             games = [ bet.game for bet in betting ]
             # games = Games.query.filter(Games.season==i.season).order_by(Games.gametime).all()
@@ -344,12 +344,13 @@ class AdminURL:
                 web.form.Textbox("Season", value=current_season()),
                 web.form.Password('password', value=""),
                 )
-            return render.admin(games, myform, msg)
+            return render.admin(group, games, myform, msg)
 
         #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, input.auth)
         # FIXME: Should be checking the group's admin password here and perhaps OR'ing it with the 'mpass'
         if i.password == config.get('Predictions', 'mpass'):
-            nextgame = Game(hometeam=i.Home, awayteam=i.Away, gametime=gametime, season=i.Season, hscore=-1, ascore=-1)
+            nextgame = Games(hometeam=i.Home, awayteam=i.Away, gametime=gametime, season=i.Season, hscore=-1, ascore=-1)
+            betting  = Betting(game=nextgame, group=groupplay)
             session.commit()
             return web.seeother('http://%s/%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), group, quote(i.Home), quote(i.Away)))
         else:
@@ -435,7 +436,7 @@ class GamesURL:
             game.stddev  = int(sqrt(sum([ pow(pdt.delta - game.mean, 2) for pdt in predictions ]) / len(predictions)))
             game.penalty = int(game.mean + (game.stddev / 2))
 
-            undecided = [ p for p in people if p.name not in [ pdt.person.name for pdt in game.predictions ] ]
+            undecided = [ p for p in people if p.name not in [ pdt.person.name for pdt in predictions ] ]
             for dummy in undecided:
                 person = people[pindex[dummy.name]]
                 person.tot_games += 1
@@ -507,9 +508,9 @@ class PredictionsURL:
             undecided = [ p for p in people if p.name not in [ pdt.person.name for pdt in predictions ] ]
 
             # Now, you can only see the predictions when all are in or the game has started.
-            game.showpredictions = (datetime.now() > game.gametime) or not undecided
+            game.showpredictions = (datetime.now() > game.gametime) or not undecided or game.done
 
-            return render.predictions(game.predictions, game, undecided)
+            return render.predictions(group, predictions, game, undecided)
         except (Exception), e:
             print 'print_exc():'
             traceback.print_exc(file=sys.stdout)

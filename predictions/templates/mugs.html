@@ -25,8 +25,19 @@ $def with (people)
 
 <h1 class="inset">Mugshots</h1>
 
-$for person in people:
+$for N, person in enumerate(people):
+    $if not N % 2:
+        <div id="clearinghouse"></div>
+    <div class="person">
     <img src="/$person.mugshot" />
+    <p>$person.name.split()[0] &quot;<i>$person.nickname</i>&quot; $person.name.split()[1]
+    $if person.betting:
+        - bets on coffee
+    $else:
+        - plays for fun
+    </p>
+    </div>
+
 </div>
 
 </body>

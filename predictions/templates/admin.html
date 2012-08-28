@@ -1,4 +1,4 @@
-$def with (games, myform, msg)
+$def with (group, games, myform, msg)
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
     "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -35,7 +35,7 @@ $for game in games:
     $if game.done:
         $game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)
     $else:
-        Punch in the <a href="/predictions/$game.ahref/final">$game.hometeam vs. $game.awayteam final score</a>.
+        Punch in the <a href="/predictions/$group/$game.ahref/final">$game.hometeam vs. $game.awayteam final score</a>.
     </p>
     </li>
 </ul>
