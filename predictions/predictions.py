@@ -632,15 +632,13 @@ class PredictURL:
             return web.seeother('http://%s/%s/%s/' % (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
 
         # also, you can not make a prediction once all of the predictions are in.
-        predictions = Predictions.query.filter(and_(Predictions.group==groupplay, Predictions.game==game)).all()
-        people = [ m.person for m in Membership.query.filter(Membership.group==groupplay).all() ]
-        undecided = [ p1 for p1 in people if p.name not in [ pdt.person.name for pdt in predictions ] ]
+        undecided = getundecided(group, game)
         if not undecided:
             return web.seeother('http://%s/%s/%s/' % (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
 
         if p.password == i.password or i.password == config.get('Predictions', 'mpass'):
             # Is there already a prediction out there for this?
-            q = Predictions.query.filter_by(person=p).filter_by(game=game)
+            q = Predictions.query.filter(and_(Predictions.group==groupplay, Predictions.game==game, Predictions.person==p))
             if q.count():
                 pp = q.one()
                 pp.home=int(getattr(i,hometeam))
