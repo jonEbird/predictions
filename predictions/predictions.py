@@ -531,10 +531,12 @@ class PredictionsURL:
             session.commit() # fixes caching?
             person = Person.query.filter_by(password=password).one()
             game = getgamebyversus(home_vs_away, i.season)
+            game.done = game.hscore != -1
 
             # Insert InGameScores commentary by our fellow player
-            InGameScores(home=homescore, away=awayscore, comment=comment, person=person, game=game, group=groupplay)
-            session.commit()
+            if not game.done:
+                InGameScores(home=homescore, away=awayscore, comment=comment, person=person, game=game, group=groupplay)
+                session.commit()
 
         except (Exception), e:
             return 'DEBUG: Got an error: %s' % (str(e))

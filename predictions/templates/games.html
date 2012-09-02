@@ -28,8 +28,12 @@ $def with (games, people, names, pindex, charts, selected_season, seasons)
         data.addColumn('string', 'Game');
         $for name in names:
             data.addColumn('number', '$name');
-        data.addRows($len(games));
-	$for i, game in enumerate(games):
+        data.addRows($len(games)+1);
+        <!-- start the graph at zeros -->
+        data.setValue(0, 0, 'Season Start');
+	$for i, person in enumerate(people):
+	    data.setValue(0, ${pindex[person.name]+1}, 0);
+	$for i, game in enumerate(games, 1):
             $if game.done:
     	        data.setValue($i, 0, '$game.opponent');
                 $for j, pdt in enumerate(game.predictions):
