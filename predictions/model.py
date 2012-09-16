@@ -119,6 +119,13 @@ def getgroup(group, season=current_season()):
 def getpeople(group, season=current_season()):
     return [ member.person for member in Membership.query.filter(Membership.group==getgroup(group, season)).all() ]
 
+def getperson(group, name, season=current_season()):
+    person = filter(lambda x: x.name == name, getpeople(group, season))
+    if person:
+        return person[0]
+    else:
+        return None
+
 def getpredictions(group, game):
     """Return a list of Prediction objects.
     Args: 'group' is a string and 'game' is a Game object"""

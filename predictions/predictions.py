@@ -1,6 +1,6 @@
 #!/bin/env python
 
-import os, sys, ConfigParser, smtplib, traceback
+import os, sys, ConfigParser, smtplib, traceback, shutil, tempfile
 from datetime import datetime, timedelta
 from math import sqrt, pow
 
@@ -11,6 +11,7 @@ import web
 from model import *
 from utils.ncaa_odds import *
 from utils.sms import *
+from utils.profile import *
 from urllib import quote
 from email.mime.text import MIMEText
 
@@ -29,6 +30,7 @@ if not config.has_section('Predictions') or not config.has_section('Testing'):
 
 urls = (
     '/([^/]*)/', 'GamesURL',
+    '/([^/]*)/profile/([^/]*)/', 'ProfileURL', # group, name
     '/([^/]*)/([^/]*)/', 'PredictionsURL',
     '/([^/]*)/([^/]*)/final', 'FinalscoreURL',
     '/([^/]*)/([^/]*)/([^/]*)/', 'PredictURL',
@@ -293,6 +295,69 @@ class Mugs:
         i = web.input(season=current_season())
         people = getpeople(group, i.season)
         return render.mugs(people)
+
+class ProfileURL:
+    def GET(self, group, name):
+        i = web.input(season=current_season())
+        person = getperson(group, name, i.season)
+
+        # You can change your profile: Picture, Nickname
+        myform = web.form.Form(
+            web.form.Textbox("Nickname", value=person.nickname),
+            web.form.File("Mugshot"),
+            web.form.Password('password', value=""),
+            )
+
+        msg = ''
+        return render.profile(person, myform, msg)
+
+    def POST(self, group, name):
+        i = web.input(Mugshot={}, season=current_season())
+        person = getperson(group, name, i.season)
+
+        # Won't be doing much if the password is incorrect
+        if not (person.password == i.password or i.password == config.get('Predictions', 'mpass')):
+            msg = 'Wrong password. Try again'
+            myform = web.form.Form(
+                web.form.Textbox("Nickname", value=person.nickname),
+                web.form.File("Mugshot"),
+                web.form.Password('password', value=""),
+                )
+            return render.profile(person, myform, msg)
+
+        # Lets start with the nickname
+        if person.nickname != i.Nickname.strip():
+            person.nickname = i.Nickname.strip()
+            session.commit()
+
+        # Now lets take a look at the picture
+        if i.Mugshot.filename:
+            tmpfile = tempfile.mktemp(prefix='predictions_')
+            fh = open(tmpfile, 'w')
+            fh.write(i.Mugshot.file.read())
+            fh.close()
+
+            if is_valid_picture(tmpfile):
+                dst = os.path.join(config.get('Predictions', 'BASEDIR'), person.mugshot)
+                shutil.copy(tmpfile, dst)
+                # And now need to resize it
+                os.system('convert %s -resize 300x300 %s' % (dst, dst))
+            else:
+                msg = 'Your new profile pic is not actually a pic. Try again.'
+                myform = web.form.Form(
+                    web.form.Textbox("Nickname", value=person.nickname),
+                    web.form.File("Mugshot"),
+                    web.form.Password('password', value=""),
+                    )
+                # clean up first, then redirect them
+                os.unlink(tmpfile)
+                return render.profile(person, myform, msg)
+
+            # clean up
+            os.unlink(tmpfile)
+
+        return web.seeother('http://%s/%s/mugs' % (config.get('Predictions', 'HTTPHOST'), group))
+
 
 class AdminURL:
     def GET(self, group):

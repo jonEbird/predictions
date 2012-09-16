@@ -57,7 +57,7 @@ $for season in seasons[:-1]:
 <h1 class="inset">Games We Like to Make Predictions On</h1>
 
 <ul>
-$for game in games:
+$for i, game in enumerate(games):
     <div id="clearinghouse"></div>
     $if game.done:
         <li><p class="game">
@@ -73,8 +73,7 @@ $for game in games:
         </p></li>
     $else:
         <li><p class="game">On $game.gametime.strftime('%A, %b %d at %H:%M') <a href="$game.ahref/?season=$selected_season">$game.hometeam hosts $game.awayteam</a>. Get your predictions in!
-    </p>
-    </li>
+        </li></p>
 </ul>
 <p class="disclaimer">Data shown in the brackets are statistics on the game predictions. [mean +- standard deviation]</p>
 
