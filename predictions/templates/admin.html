@@ -44,6 +44,17 @@ $for game in games:
 $:myform.render()
 <input type="submit" value="Create Game"/>
 </form>
+<hr>
+<h3>Email the Group</h3>
+<form method="post" action="email" autocomplete="off">
+    <label for="Subject">Subject</label><input type="text" id="subject" value="" name="subject"/> </br>
+    <textarea name="email" cols=80 rows=20 value=""></textarea> </br>
+    <p class="helptxt">Psst. You can use these expandables: </br>
+      %{name} %{name_url} %{nickname} %{password} %{betting}
+    </p>
+    <label for="password">password</label><input type="password" id="password" value="" name="password"/>
+    <input type="submit" value="Email Group"/>
+</form>
 
 </div>
 
