@@ -364,9 +364,7 @@ class EmailURL:
         i = web.input(season=current_season())
         if i.password == config.get('Predictions', 'mpass'):
             email_message(group, i.subject, i.email)
-            #return 'Debug: Emailing %s group with the subject of "%s"' % (group, i.subject)
-        else:
-            #return 'Debug: Must not have liked the password?'
+
         return web.seeother('http://%s/%s/admin' % (config.get('Predictions', 'HTTPHOST'), group))
 
 class AdminURL:
