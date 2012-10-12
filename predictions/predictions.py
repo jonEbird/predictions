@@ -69,7 +69,7 @@ def sms_message(group, msg):
     """
     if not config.has_section('Twilio'):
         return
-    sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'))
+    sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'), debug=1)
     for person in getpeople(group, current_season()):
         if config.get('Predictions', 'mode') == 'dev' and person.name != config.get('Testing', 'testing_name'): continue
         sms.send(person.phonenumber, custom_msg(msg, person))
@@ -114,7 +114,7 @@ def sms_reminder(group):
             break
 
     if message and config.has_section('Twilio'):
-        sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'))
+        sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'), debug=1)
         for game in Games.query.filter(and_(Games.gametime < midnight_tomorrow, Games.gametime > now)).all():
 
             undecided = getundecided(group, game)
@@ -259,7 +259,7 @@ def sms_gameresults(group, home_vs_away):
 
         if not config.has_section('Twilio'):
             return
-        sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'))
+        sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'), debug=1)
 
         for pdt in predictions:
             person = pdt.person
@@ -283,6 +283,7 @@ def sms_gameresults(group, home_vs_away):
                 text += ' You owe %s coffee.' % coffee_names
             text += ' http://%s/%s/%s/' % (config.get('Predictions', 'HTTPHOST'), group, home_vs_away)
 
+            print 'DEBUG: Sending "%s" at %s message: "%s"' % (pdt.person.name, str(pdt.person.phonenumber), text)
             sms.send(pdt.person.phonenumber, text)
 
         del sms

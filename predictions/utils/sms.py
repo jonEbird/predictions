@@ -21,7 +21,7 @@ class SMS():
 
         # Dunno why you have called this, but interjecting a sleep is probably good
         if self.debug: print 'DEBUG: sleep for 3'
-        time.sleep(3)
+        time.sleep(1)
 
         # Now, re-create a Twilio object
         if self.debug: print 'DEBUG: relogging in.'
@@ -40,7 +40,16 @@ class SMS():
             try:
                 if self.debug: print 'DEBUG: Sending %s the message "%s"' % (num, text)
                 message = self.client.sms.messages.create(to=num, from_=self.twilio_num, body=text)
-                break # hurray
+                time.sleep(1) # Twilio mandates to not send more than one message per second
+
+                # Lets check on that status of that message
+                message_copy = [ m for m in self.client.sms.messages.list(to=num, from_=self.twilio_num) if m.name == message.name ][0]
+                if message_copy.status == u'sent':
+                    break # hurray
+                else:
+                    errors += 1
+                    continue # Need to try again, I'm afraid
+
             except (Exception), e:
                 if self.debug: print 'DEBUG: Problem sending SMS: %s' % (str(e))
                 errors += 1
