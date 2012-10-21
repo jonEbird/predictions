@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os, sys, time
+from datetime import datetime
 from twilio.rest import TwilioRestClient
 
 class SMS():
@@ -28,11 +29,12 @@ class SMS():
         self.client = TwilioRestClient(account=self.twilio_account, token=self.twilio_token)
         self.__logged_in = True
 
-    def send(self, num, text, maxtries=10):
+    def send(self, num, text, maxtries=3):
         """Send a SMS message to 'num' with the message in 'text'
         Mainly a wrapper to be persistent about getting sms messages out successfully"""
         errors = 0
-        while errors <= maxtries:
+        sent = False
+        while errors <= maxtries and not sent:
             # Do we need to re-login?
             #  I'm saying we do when we've hit 3 errors in a row.
             if (errors % 3) == 0 and errors:
@@ -40,19 +42,29 @@ class SMS():
             try:
                 if self.debug: print 'DEBUG: Sending %s the message "%s"' % (num, text)
                 message = self.client.sms.messages.create(to=num, from_=self.twilio_num, body=text)
-                time.sleep(1) # Twilio mandates to not send more than one message per second
 
-                # Lets check on that status of that message
-                message_copy = [ m for m in self.client.sms.messages.list(to=num, from_=self.twilio_num) if m.name == message.name ][0]
-                if message_copy.status == u'sent':
-                    break # hurray
-                else:
-                    errors += 1
-                    continue # Need to try again, I'm afraid
+                # Now loop and wait to see if the message got sent
+                #   Will wait up to 15 seconds before resending
+                for i in range(15):
+                    # Twilio mandates to not send more than one message per second
+                    time.sleep(1)
+
+                    # Lets check on that status of that message
+                    message_copy = [ m for m in self.client.sms.messages.list(to=num, from_=self.twilio_num) if m.name == message.name ][0]
+                    if message_copy.status == u'sent':
+                        if self.debug:
+                            print 'Successfully sent %s the message "%s"' % (num, text)
+                        sent = True
+                        break # hurray
 
             except (Exception), e:
                 if self.debug: print 'DEBUG: Problem sending SMS: %s' % (str(e))
                 errors += 1
+
+    def get_messages(self):
+        """ Return a list of the latest messages.
+        """
+        return self.client.sms.messages.list()
 
     def __del__(self):
         self.__logged_in = False

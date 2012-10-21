@@ -292,6 +292,25 @@ def sms_gameresults(group, home_vs_away):
         raise e
         #print 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
 
+def print_sms_messages():
+    sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'), debug=1)
+    num2name = dict([ ('+1%s' % p.phonenumber, p.name) for p in Person.query.all() ])
+    stat_n, stat_tot = 0, 0.0
+    for m in sms.get_messages():
+        date_created = datetime.strptime(m.date_created, '%a, %d %b %Y %H:%M:%S +%f')
+        date_sent    = datetime.strptime(m.date_sent,    '%a, %d %b %Y %H:%M:%S +%f')
+        date_updated = datetime.strptime(m.date_updated, '%a, %d %b %Y %H:%M:%S +%f')
+        ts = (date_sent - date_created).total_seconds()
+        # Stats
+        stat_n   += 1
+        stat_tot += ts
+
+        print '%s sent to %s (%s) and completed %fs later:\n  "%s"' % \
+            (date_created.strftime('%F %T'), num2name.get(m.to, 'Unknown'), m.to, ts, m.body)
+
+    print '%d messages sent for an average of %fs to complete the message.' % (stat_n, stat_tot / stat_n)
+
+
 class Mugs:
     def GET(self, group):
         i = web.input(season=current_season())
@@ -764,6 +783,9 @@ if __name__ == "__main__":
                         help='Send a SMS to each member with the results of the game.')
     parser.add_argument('--teams', dest='home_vs_away', nargs=2,
                         help='Send a SMS to each member with the results of the game.')
+    # Inquiry
+    parser.add_argument('--list-sms', dest='list_sms', action='store_true', default=False,
+                        help='Print out a summary of the last SMS messages sent.')
     # Debug
     parser.add_argument('--debug', dest='debug', action='store_true', default=False,
                         help='Debugging the arguments / actions.')
@@ -809,8 +831,11 @@ if __name__ == "__main__":
             sms_message(args.group, args.message)
 
     #elif (len(sys.argv) == 3 and sys.argv[1] in ['sms_final', 'sms_gameresults']):
-    elif sms_results and args.home_vs_away:
+    elif args.sms_results and args.home_vs_away:
         home, away = args.home_vs_away
         sms_gameresults(args.group, '%s_vs_%s' % (home, away))
+
+    elif args.list_sms:
+        print_sms_messages()
 
     # app.run()
