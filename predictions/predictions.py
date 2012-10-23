@@ -61,6 +61,75 @@ def dateparse(date):
             continue
     return t
 
+def game_info(group, home_vs_away, season=current_season()):
+    """Returns useful Game object with the following objects available:
+    - done (boolean) - Is the game over?
+    - started (boolean) - Has it started?
+    - showpredictions (boolean) - Okay to show predictions?
+    - url (string) - Fully qualified URL for the game.
+    - stats (dict) - Keys 'mean', 'stddev', 'penalty'
+    - people (list) - Sorted based on the winner with ties being handled. Extra objects include:
+        - predicted (boolean) - Has this person made their prediction yet?
+        - delta (int) - How far off from the exact score was their prediction.
+        - home (int), away (int) - The predictions for the home and away team scores.
+    """
+    try:
+        game = getgamebyversus(home_vs_away, season)
+        game.done = (game.hscore != -1)
+
+        now =  datetime.now()
+        game.started = now > game.gametime
+
+        game.url = 'http://%s/%s/%s_vs_%s/?season=%s' % \
+            (config.get('Predictions', 'HTTPHOST'), group, quote(game.hometeam), quote(game.awayteam), season)
+
+        predictions = getpredictions(group, game)
+        for i in range(len(predictions)):
+            p = predictions[i]
+            p.delta = abs(game.hscore - p.home) + abs(game.ascore - p.away)
+            p.predicted = True
+            # Other attributes I'd typically want like the person
+            p.name        = p.person.name
+            p.nickname    = p.person.nickname
+            p.email       = p.person.email
+            p.phonenumber = p.person.phonenumber
+            p.password    = p.person.password
+            p.mugshot     = p.person.mugshot
+            p.betting     = p.person.betting
+            # Reassign
+            predictions[i] = p
+
+        # Statistics
+        game.stats = {}
+        game.stats['mean']    = sum([ p.delta for p in predictions ]) / len(predictions)
+        game.stats['stddev']  = int(sqrt(sum([ pow(p.delta - game.stats['mean'], 2) for p in predictions ]) / len(predictions)))
+        game.stats['penalty'] = int(game.stats['mean'] + game.stats['stddev'])
+
+        # Now grab any undecided people
+        undecided = getundecided(group, game)
+        # Knowing the undecided results, we can now accurately determine if it is safe to show the predictions
+        game.showpredictions = (now > game.gametime) or not undecided or game.done
+        # Now onto adding the expected attributes to these entries as well
+        for i in range(len(undecided)):
+            p = undecided[i]
+            p.delta = game.stats['penalty']
+            p.home = -1
+            p.away = -1
+            p.predicted = False
+            undecided[i] = p
+
+        people = predictions + undecided
+
+        # Initial sorting, then we handle the tie breaks
+        people.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
+
+        game.people = people
+
+        return game
+
+    except (Exception), e:
+        raise e
+
 def sms_message(group, msg):
     """Craft a note to be SMS'ed to everyone. Some smart substitutions can occur such as:
        %{name}     = name from DB
