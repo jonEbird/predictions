@@ -70,6 +70,7 @@ def game_info(group, home_vs_away, season=current_season()):
     - stats (dict) - Keys 'mean', 'stddev', 'penalty'
     - people (list) - Sorted based on the winner with ties being handled. Extra objects include:
         - predicted (boolean) - Has this person made their prediction yet?
+        - picked_winner (boolean) - Did you pick the correct team to win?
         - delta (int) - How far off from the exact score was their prediction.
         - home (int), away (int) - The predictions for the home and away team scores.
     """
@@ -88,6 +89,11 @@ def game_info(group, home_vs_away, season=current_season()):
             p = predictions[i]
             p.delta = abs(game.hscore - p.home) + abs(game.ascore - p.away)
             p.predicted = True
+            # Picked the correct team?
+            if game.hscore > game.ascore:
+                p.picked_winner = p.home > p.away
+            else:
+                p.picked_winner = p.home < p.away
             # Other attributes I'd typically want like the person
             p.name        = p.person.name
             p.nickname    = p.person.nickname
@@ -116,12 +122,76 @@ def game_info(group, home_vs_away, season=current_season()):
             p.home = -1
             p.away = -1
             p.predicted = False
+            p.picked_winner = False
             undecided[i] = p
 
         people = predictions + undecided
 
         # Initial sorting, then we handle the tie breaks
-        people.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
+        def prediction_cmp(p1, p2):
+            """Function used for sorting out who did better than the other person.
+            Returns -1, 0, or 1 as a cmp function should.
+            """
+            if p1.delta < p2.delta:
+                return -1
+            elif p1.delta > p2.delta:
+                return 1
+            elif p1.delta == p2.delta:
+                # Rule 1: Did you pick the wrong team?
+                if p1.picked_winner and not p2.picked_winner:
+                    return -1
+                elif not p1.picked_winner and p2.picked_winner:
+                    return 1
+                # Rule 2: Did anyone predict the winning score exactly correct?
+                if game.hscore > game.ascore: # home team won
+                    if p1.home == game.hscore and p2.home != game.hscore:
+                        return -1
+                    elif p1.home != game.hscore and p2.home == game.hscore:
+                        return 1
+                else: # away team won
+                    if p1.away == game.ascore and p2.away != game.ascore:
+                        return -1
+                    elif p1.away != game.ascore and p2.away == game.ascore:
+                        return 1
+                # Rule 3: How about the losing team's score exactly?
+                if game.hscore > game.ascore: # home team won
+                    if p1.away == game.ascore and p2.away != game.ascore:
+                        return -1
+                    elif p1.away != game.ascore and p2.away == game.ascore:
+                        return 1
+                else: # away team won
+                    if p1.home == game.hscore and p2.home != game.hscore:
+                        return -1
+                    elif p1.home != game.hscore and p2.home == game.hscore:
+                        return 1
+                # Rule 4: Who more closely predicted the winning team's score?
+                if game.hscore > game.ascore: # home team won
+                    if abs(game.hscore - p1.home) < abs(game.hscore - p2.home):
+                        return -1
+                    elif abs(game.hscore - p1.home) > abs(game.hscore - p2.home):
+                        return 1
+                else: # away team won
+                    if abs(game.ascore - p1.away) < abs(game.ascore - p2.away):
+                        return -1
+                    elif abs(game.ascore - p1.away) > abs(game.ascore - p2.away):
+                        return 1
+                # Rule 5: Who more closely predicted the losing team's score?
+                if game.hscore > game.ascore: # home team won
+                    if abs(game.ascore - p1.away) < abs(game.ascore - p2.away):
+                        return -1
+                    elif abs(game.ascore - p1.away) > abs(game.ascore - p2.away):
+                        return 1
+                else: # away team won
+                    if abs(game.hscore - p1.home) < abs(game.hscore - p2.home):
+                        return -1
+                    elif abs(game.hscore - p1.home) > abs(game.hscore - p2.home):
+                        return 1
+                # Rule 6: Fine! Who put their prediction in first?
+                # Well, in this case, do not change the order... already in prediction order.
+                return 0
+
+        # Sort people based on their prediction and take into account tie breakers
+        people.sort(cmp=prediction_cmp)
 
         game.people = people
 
