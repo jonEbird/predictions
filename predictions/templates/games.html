@@ -63,13 +63,13 @@ $for i, game in enumerate(games):
         <li><p class="game">
         $for mugshot in game.mugshots:
             <img class="winningpic" src="/$mugshot" />
-	$if game.coffee_winningnames:
+	$if not game.people[0].betting:
             $game.winningnames wins the prediction!
             But $game.coffee_winningnames wins coffee! <img class="coffee" src="/static/coffee.jpg" /></br>
         $else:
             $game.winningnames wins coffee! <img class="coffee" src="/static/coffee.jpg" /></br>
         Final score on $game.gametime.strftime('%b %d') was <a href="$game.ahref/?season=$selected_season">$game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)</a>
-        [<span class="stats">$game.mean +- $game.stddev</span>]
+        [<span class="stats">$game.stats['mean'] +- $game.stats['stddev']</span>]
         </p></li>
     $else:
         <li><p class="game">On $game.gametime.strftime('%A, %b %d at %H:%M') <a href="$game.ahref/?season=$selected_season">$game.hometeam hosts $game.awayteam</a>. Get your predictions in!

@@ -24,7 +24,7 @@ def get_odds(home_vs_away):
     both_teams_t = [ t.getchildren()[0].text for t in both_teams ]
     other_team = filter(lambda x: x != hometeam, both_teams_t)[0]
     if other_team != awayteam:
-        return '<p>Can not find odds for %s vs %s</p>' % (hometeam, awayteam)
+        raise '<p>Can not find odds for %s vs %s</p>' % (hometeam, awayteam)
     else:
         return re.sub('bgcolor="[^"]*"', '', tostring(teamline))
 

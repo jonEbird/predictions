@@ -71,6 +71,7 @@ def game_info(group, home_vs_away, season=current_season()):
     - people (list) - Sorted based on the winner with ties being handled. Extra objects include:
         - predicted (boolean) - Has this person made their prediction yet?
         - picked_winner (boolean) - Did you pick the correct team to win?
+        - winningcoffee (boolean) - Does this person win coffee?
         - delta (int) - How far off from the exact score was their prediction.
         - home (int), away (int) - The predictions for the home and away team scores.
     """
@@ -89,6 +90,8 @@ def game_info(group, home_vs_away, season=current_season()):
             p = predictions[i]
             p.delta = abs(game.hscore - p.home) + abs(game.ascore - p.away)
             p.predicted = True
+            # Defaults
+            p.winningcoffee = False
             # Picked the correct team?
             if game.hscore > game.ascore:
                 p.picked_winner = p.home > p.away
@@ -109,7 +112,7 @@ def game_info(group, home_vs_away, season=current_season()):
         game.stats = {}
         game.stats['mean']    = sum([ p.delta for p in predictions ]) / len(predictions)
         game.stats['stddev']  = int(sqrt(sum([ pow(p.delta - game.stats['mean'], 2) for p in predictions ]) / len(predictions)))
-        game.stats['penalty'] = int(game.stats['mean'] + game.stats['stddev'])
+        game.stats['penalty'] = int(game.stats['mean'] + (game.stats['stddev'] / 2))
 
         # Now grab any undecided people
         undecided = getundecided(group, game)
@@ -123,9 +126,10 @@ def game_info(group, home_vs_away, season=current_season()):
             p.away = -1
             p.predicted = False
             p.picked_winner = False
+            # Defaults
+            p.winningcoffee = False
             undecided[i] = p
-
-        people = predictions + undecided
+        game.undecided = undecided # used for boolean or iteration
 
         # Initial sorting, then we handle the tie breaks
         def prediction_cmp(p1, p2):
@@ -190,8 +194,16 @@ def game_info(group, home_vs_away, season=current_season()):
                 # Well, in this case, do not change the order... already in prediction order.
                 return 0
 
+        people = predictions + undecided
+
         # Sort people based on their prediction and take into account tie breakers
-        people.sort(cmp=prediction_cmp)
+        if game.showpredictions:
+            people.sort(cmp=prediction_cmp)
+
+        # Final piece of business is deciding who wins coffee
+        betters_index = [ i for (i,p) in enumerate(people) if p.betting ]
+        if betters_index:
+            people[betters_index[0]].winningcoffee = True
 
         game.people = people
 
@@ -592,7 +604,8 @@ class GamesURL:
     def GET(self, group):
         i = web.input(season=current_season())
         selected_season = i.season
-        now = datetime.now()
+        # selected_season = i.season
+        # now = datetime.now()
         charts = []
         # We care about three DB things for this page: Games, People, Predictions
         # 1. Games
@@ -600,7 +613,8 @@ class GamesURL:
         betting = Betting.query.filter(Betting.group==groupplay).all()
         games = [ bet.game for bet in betting ]
         # 2. People
-        people = [ m.person for m in Membership.query.filter(Membership.group==groupplay).all() ]
+        people = getpeople(group, i.season)
+        # people = [ m.person for m in Membership.query.filter(Membership.group==groupplay).all() ]
         names = [ p.name for p in people ]
         pindex = dict([ (person.name, i) for i, person in enumerate(people) ])
         # some stats initialization
@@ -612,12 +626,9 @@ class GamesURL:
             people[i] = person
 
         for i in range(len(games)):
-            game = games[i]
-            # first, it is over?
-            td = now - game.gametime
-            #game.done = (td.seconds + td.days * 24 * 3600) > 14400 # 4hours past gametime?
-            game.done = (game.hscore != -1)
-            # Now help out the templating engine
+            game = game_info(group, '%s_vs_%s' % (games[i].hometeam, games[i].awayteam), selected_season)
+
+            # Helping out the templating engine
             game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
             if game.hometeam == 'OSU':
                 game.opponent = game.awayteam
@@ -625,60 +636,32 @@ class GamesURL:
                 game.opponent = game.hometeam
             games[i] = game
 
-            # Update stats on completed games
+            # # Update stats on completed games
             if not game.done:
                 continue
-            #predictions = game.predictions
-            #predictions = [ p for p in game.predictions if p.group == groupplay ]
-            predictions = Predictions.query.filter(and_(Predictions.group==groupplay, Predictions.game==game)).all()
-            for j in range(len(predictions)):
-                try:
-                    pdt = predictions[j]
-                    delta = abs(game.hscore - pdt.home) + abs(game.ascore - pdt.away)
-                    pdt.delta = delta
-                    name = pdt.person.name
-                    person = people[pindex[name]]
-                    person.tot_games += 1
-                    person.tot_delta += delta
-                    # For graphing purposes
-                    person.game_deltas[i] = delta
-                    # person
-                    people[pindex[name]] = person
-                    # set prediction
-                    predictions[j] = pdt
-                except (TypeError), e:
-                    continue
-            game.predictions = predictions
 
-            predictions.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
-            winner = predictions[0]
-            game.mugshots = [ pdt.person.mugshot for pdt in predictions if pdt.delta == winner.delta ]
-            game.winningnames = ' & '.join([ pdt.person.name for pdt in predictions if pdt.delta == winner.delta ])
+            for i, p in enumerate(game.people):
+                person = people[pindex[p.name]]
+                person.tot_games += 1
+                person.tot_delta += p.delta
+                # For graphing purposes
+                person.game_deltas[i] = p.delta
+                # person
+                people[pindex[name]] = person
+
+            game.mugshots = [ game.people[0].mugshot ]
+            game.winningnames = game.people[0].name
 
             # Ah, but what about the coffee betters and not the funsies?
-            betters = [ pdt for pdt in predictions if pdt.person.betting ]
-            coffee_winner = betters[0]
-            if winner != coffee_winner:
-                game.coffee_winningnames = ' & '.join([ pdt.person.name for pdt in betters if pdt.delta == coffee_winner.delta ])
-            else:
-                game.coffee_winningnames = ''
-
-            # Statistics
-            game.mean    = sum([ pdt.delta for pdt in predictions ]) / len(predictions)
-            game.stddev  = int(sqrt(sum([ pow(pdt.delta - game.mean, 2) for pdt in predictions ]) / len(predictions)))
-            game.penalty = int(game.mean + (game.stddev / 2))
-
-            undecided = [ p for p in people if p.name not in [ pdt.person.name for pdt in predictions ] ]
-            for dummy in undecided:
-                person = people[pindex[dummy.name]]
-                person.tot_games += 1
-                person.tot_delta += game.penalty
-                people[pindex[dummy.name]] = person
+            game.coffee_winningnames = ' & '.join([ p.name for p in game.people if p.winningcoffee ])
 
         people.sort(cmp=lambda a, b: cmp(a.tot_delta, b.tot_delta))
-        #charts.append("""http://chart.apis.google.com/chart?chxl=0:|%s&chxr=0,0,%d&chds=0,%d&chxt=y,x&chbh=a,5&chs=300x225&cht=bhg&chco=A2C180&chd=t:%s&chtt=Total+Points+Off+in+All+Games&chts=EE2525,11.5""" % ( "|".join([ p.name.replace(' ', '+') for p in people.__reversed__()]), people[-1].tot_delta, people[-1].tot_delta, ','.join([ ('%d' % p.tot_delta) for p in people ]) ))
 
-        charts.append("""http://chart.apis.google.com/chart?chxl=0:|%s&chxt=y,x&chxr=1,0,%d&chds=0,%d&chbh=a,5&chs=300x225&cht=bhg&chco=A2C180&chd=t:%s&chtt=Total+Points+Off+in+All+Games&chts=EE2525,11.5""" % ("|".join([ p.name.replace(' ', '+') for p in people.__reversed__()]), people[-1].tot_delta, people[-1].tot_delta, ','.join([ ('%d' % p.tot_delta) for p in people ])) )
+        # Barchart for the season
+        barchart_url = \
+"""http://chart.apis.google.com/chart?chxl=0:|%s&chxt=y,x&chxr=1,0,%d&chds=0,%d&chbh=a,5&chs=300x225&cht=bhg&chco=A2C180&chd=t:%s&chtt=Total+Points+Off+in+All+Games&chts=EE2525,11.5"""
+
+        charts.append(barchart_url % ("|".join([ p.name.replace(' ', '+') for p in reversed(people)]), people[-1].tot_delta, people[-1].tot_delta, ','.join([ ('%d' % p.tot_delta) for p in people ])) )
 
         return render.games(games, people, names, pindex, charts, selected_season, get_seasons())
 
@@ -686,10 +669,7 @@ class PredictionsURL:
     def GET(self, group, home_vs_away):
         try:
             i = web.input(season=current_season())
-            session.commit() # fixes caching?
-            game = getgamebyversus(home_vs_away, i.season)
-            groupplay = getgroup(group, i.season)
-            predictions = Predictions.query.filter(and_(Predictions.group==groupplay, Predictions.game==game)).all()
+            game = game_info(group, home_vs_away, i.season)
 
             # Do I need to fetch the odds on the game?
             #  Shouldn't try to fetch before at least 4 days till game.
@@ -702,47 +682,7 @@ class PredictionsURL:
                 except (Exception), e:
                     pass
 
-            # Need to know if the game has started or not. Also need to know if the game is done.
-            game.started = now > game.gametime
-            game.done = game.hscore != -1
-
-            # Use the following query if you need to limit the scores show per Group
-            # ingamescores = InGameScores.query.filter(and_(InGameScores.game==game, InGameScores.group==groupplay)).all()
-            if game.done or (game.started and game.ingamescores):
-                if game.done:
-                    hscore = game.hscore
-                    ascore = game.ascore
-                else:
-                    hscore = game.ingamescores[-1].home
-                    ascore = game.ingamescores[-1].away
-
-                for i in range(len(predictions)):
-                    p = predictions[i]
-                    p.delta = abs(hscore - p.home) + abs(ascore - p.away)
-                    p.person.winningcoffee = False
-                    predictions[i] = p
-                predictions.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
-                betters = [ pdt for pdt in predictions if pdt.person.betting ]
-                if betters:
-                    coffee_delta = betters[0].delta
-                    for i in range(len(betters)):
-                        p = betters[i]
-                        if p.delta == coffee_delta:
-                            p.person.winningcoffee = True
-                        betters[i] = p
-                # Statistics
-                game.mean    = sum([ pdt.delta for pdt in predictions ]) / len(predictions)
-                game.stddev  = sqrt(sum([ pow(pdt.delta - game.mean, 2) for pdt in predictions ]) / len(predictions))
-                game.penalty = int(game.mean + (game.stddev / 2))
-
-            # FIXME: Don't really like this query but it's working...
-            people = [ m.person for m in Membership.query.filter(Membership.group==groupplay).all() ]
-            undecided = [ p for p in people if p.name not in [ pdt.person.name for pdt in predictions ] ]
-
-            # Now, you can only see the predictions when all are in or the game has started.
-            game.showpredictions = (datetime.now() > game.gametime) or not undecided or game.done
-
-            return render.predictions(group, predictions, game, undecided)
+            return render.predictions(group, game)
         except (Exception), e:
             print 'print_exc():'
             traceback.print_exc(file=sys.stdout)
