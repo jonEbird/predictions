@@ -1,6 +1,6 @@
 #!/bin/env python
 
-import os, sys, ConfigParser, smtplib, traceback, shutil, tempfile
+import os, sys, ConfigParser, smtplib, traceback, shutil, tempfile, random
 from datetime import datetime, timedelta
 from math import sqrt, pow
 
@@ -197,7 +197,7 @@ def game_info(group, home_vs_away, season=current_season()):
         people = predictions + undecided
 
         # Sort people based on their prediction and take into account tie breakers
-        if game.showpredictions:
+        if game.ingamescores or game.done:
             people.sort(cmp=prediction_cmp)
 
         # Final piece of business is deciding who wins coffee
@@ -381,62 +381,64 @@ def email_predictions(group, home_vs_away):
     except (Exception), e:
         print 'Sorry. Something happened while trying to email: %s' % (str(e))
 
-def sms_gameresults(group, home_vs_away):
+def sms_gameresults(group, home_vs_away, season):
     try:
-        game = getgamebyversus(home_vs_away, current_season())
-        game.done = (game.hscore != -1)
+        game = game_info(group, home_vs_away, season)
 
-        predictions = getpredictions(group, game)
-        for i in range(len(predictions)):
-            p = predictions[i]
-            p.delta = abs(game.hscore - p.home) + abs(game.ascore - p.away)
-            p.person.winningcoffee = False
-            predictions[i] = p
-        predictions.sort(cmp=lambda a, b: cmp(a.delta,b.delta))
-        winner = predictions[0]
-        ties = [ pdt.person.name for pdt in predictions if pdt.delta == winner.delta ]
-        # coffee gamblers
-        betters = [ pdt for pdt in predictions if pdt.person.betting ]
-        coffee_ties = [] # In case you have no betters
-        if betters:
-            coffee_delta = betters[0].delta
-            for i in range(len(betters)):
-                p = betters[i]
-                if p.delta == coffee_delta:
-                    p.person.winningcoffee = True
-                betters[i] = p
-            coffee_ties = [ pdt.person for pdt in betters if pdt.delta == coffee_delta ]
-        coffee_names = ' & '.join([ p.name for p in coffee_ties ])
+        happy_msg = ['High Five', 'Niceeee', 'Raise the roof', 'Hot Dog!', 'Kazaam!']
+        loser_msg = ['Sucker', 'Y U Mad?', 'Try Again', 'Sucks to be you', 'Suicide Hotline is 555-1212',
+                     'Ah, shucks!', 'f@#k!', 'Hahaha', 'Maybe Next time?', 'Don\'t quit on me, though',
+                     'Try asking Jon next time', 'Pisser!', 'Bugger', 'Tossers', 'Bloody Hell', 'Bollocks',
+                     'Least you have your health', 'Estupido', 'Sorry', 'Try a Popsicle. Will make you happy.',
+                     'We can\'t all be winners', 'Some days you win, today you lose', 'Glad I\'m not you. Beep beep.']
+
+        winner = game.people[0]
+        coffee_winner = [ p for p in game.people if p.betting ][0]
 
         if not config.has_section('Twilio'):
             return
         sms = SMS(config.get('Twilio', 'twilio_num'), config.get('Twilio', 'twilio_account'), config.get('Twilio', 'twilio_token'), debug=1)
 
-        for pdt in predictions:
-            person = pdt.person
+        for person in game.people:
             if config.get('Predictions', 'mode') == 'dev' and person.name != config.get('Testing', 'testing_name'):
                 continue
 
-            if len(ties) > 1:
-                if person.name in ties:
-                    text = 'Lucky SOB. You and %s win by tying at being %d off!' % (' & '.join([ o for o in ties if o != person.name]), winner.delta)
+            # Either one winner
+            if winner == coffee_winner:
+                # Coffee better won
+
+                # Is that person you?
+                if person == winner:
+                    text = 'Collect your coffee! You WIN by being off by %d! %s' % \
+                        (person.delta, random.choice(happy_msg))
                 else:
-                    text = 'A tie! %s win being %d off. You were %d off, loser.' % (' & '.join(ties), winner.delta, pdt.delta)
+                    if person.betting:
+                        text = '%s was off by %d, so you owe coffee. You were off by %d. %s' % \
+                            (winner.name, winner.delta, person.delta, random.choice(loser_msg))
+                    else:
+                        text = '%s wins being %d off. You were %d off. %s' % \
+                            (winner.name, winner.delta, person.delta, random.choice(loser_msg))
+            # Or two winners
             else:
-                if person == winner.person:
-                    text = 'Lucky SOB, you win by being off by %d!' % (pdt.delta)
+                # Funsie won it
+
+                # Is that person you?
+                if person == winner:
+                    text = 'Lucky SOB, you win by being off by %d! %s' % \
+                        (person.delta, random.choice(happy_msg))
+                elif person == coffee_winner:
+                    text = '%s wins by being %d off but you WIN coffee being %d off. %s' % \
+                        (winner.name, winner.delta, person.delta, random.choice(happy_msg))
                 else:
-                    text = '%s wins being %d off. You were %d off, loser.' % (winner.person.name, winner.delta, pdt.delta)
-            # Add the coffee winners and game URL
-            if person in coffee_ties:
-                text += ' Go collect your coffee winnings.'
-            elif person.betting:
-                text += ' You owe %s coffee.' % coffee_names
-            text += ' http://%s/%s/%s/' % (config.get('Predictions', 'HTTPHOST'), group, home_vs_away)
+                    if person.betting:
+                        text = '%s wins by being %d off and you owe %s coffee who was off %d. You\'re off by %d. %s.' % \
+                            (winner.name, winner.delta, coffee_winner.name, coffee_winner.delta, person.delta, random.choice(loser_msg))
+                    else:
+                        text = 'Cherina Kesuma wins by being 5 off. You were off by 15. Loser.' % \
+                            (winner.name, winner.delta, person.delta, random.choice(loser_msg))
 
-            print 'DEBUG: Sending "%s" at %s message: "%s"' % (pdt.person.name, str(pdt.person.phonenumber), text)
-            sms.send(pdt.person.phonenumber, text)
-
+            # text += ' http://%s/%s/%s/' % (config.get('Predictions', 'HTTPHOST'), group, home_vs_away)
+            sms.send(person.phonenumber, text)
         del sms
 
     except (Exception), e:
@@ -647,7 +649,7 @@ class GamesURL:
                 # For graphing purposes
                 person.game_deltas[i] = p.delta
                 # person
-                people[pindex[name]] = person
+                people[pindex[p.name]] = person
 
             game.mugshots = [ game.people[0].mugshot ]
             game.winningnames = game.people[0].name
@@ -757,7 +759,7 @@ class FinalscoreURL:
                 session.commit()
 
                 # Send out a SMS message about the winners
-                sms_gameresults(group, home_vs_away)
+                sms_gameresults(group, home_vs_away, i.season)
 
                 return web.seeother('http://%s/%s/%s/' % (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
 
@@ -912,7 +914,7 @@ if __name__ == "__main__":
     #elif (len(sys.argv) == 3 and sys.argv[1] in ['sms_final', 'sms_gameresults']):
     elif args.sms_results and args.home_vs_away:
         home, away = args.home_vs_away
-        sms_gameresults(args.group, '%s_vs_%s' % (home, away))
+        sms_gameresults(args.group, '%s_vs_%s' % (home, away), current_season())
 
     elif args.list_sms:
         print_sms_messages()
