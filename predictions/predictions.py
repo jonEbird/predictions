@@ -88,7 +88,11 @@ def game_info(group, home_vs_away, season=current_season()):
         predictions = getpredictions(group, game)
         for i in range(len(predictions)):
             p = predictions[i]
-            p.delta = abs(game.hscore - p.home) + abs(game.ascore - p.away)
+            if game.done:
+                p.delta = abs(game.hscore - p.home) + abs(game.ascore - p.away)
+            elif game.ingamescores:
+                igs = game.ingamescores[-1]
+                p.delta = abs(igs.home - p.home) + abs(igs.away - p.away)
             p.predicted = True
             # Defaults
             p.winningcoffee = False
@@ -109,10 +113,11 @@ def game_info(group, home_vs_away, season=current_season()):
             predictions[i] = p
 
         # Statistics
-        game.stats = {}
-        game.stats['mean']    = sum([ p.delta for p in predictions ]) / len(predictions)
-        game.stats['stddev']  = int(sqrt(sum([ pow(p.delta - game.stats['mean'], 2) for p in predictions ]) / len(predictions)))
-        game.stats['penalty'] = int(game.stats['mean'] + (game.stats['stddev'] / 2))
+        game.stats = {'mean': 0, 'stddev': 0, 'penalty': 20 }
+        if predictions:
+            game.stats['mean']    = sum([ p.delta for p in predictions ]) / len(predictions)
+            game.stats['stddev']  = int(sqrt(sum([ pow(p.delta - game.stats['mean'], 2) for p in predictions ]) / len(predictions)))
+            game.stats['penalty'] = int(game.stats['mean'] + (game.stats['stddev'] / 2))
 
         # Now grab any undecided people
         undecided = getundecided(group, game)
@@ -670,6 +675,7 @@ class GamesURL:
 class PredictionsURL:
     def GET(self, group, home_vs_away):
         try:
+            session.commit()
             i = web.input(season=current_season())
             game = game_info(group, home_vs_away, i.season)
 
