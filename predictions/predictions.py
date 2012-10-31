@@ -1,6 +1,6 @@
 #!/bin/env python
 
-import os, sys, ConfigParser, smtplib, traceback, shutil, tempfile, random
+import os, sys, ConfigParser, smtplib, traceback, shutil, tempfile, random, traceback
 from datetime import datetime, timedelta
 from math import sqrt, pow
 
@@ -93,6 +93,8 @@ def game_info(group, home_vs_away, season=current_season()):
             elif game.ingamescores:
                 igs = game.ingamescores[-1]
                 p.delta = abs(igs.home - p.home) + abs(igs.away - p.away)
+            else:
+                p.delta = 0
             p.predicted = True
             # Defaults
             p.winningcoffee = False
@@ -215,6 +217,7 @@ def game_info(group, home_vs_away, season=current_season()):
         return game
 
     except (Exception), e:
+        traceback.print_exc()
         raise e
 
 def sms_message(group, msg):
