@@ -442,7 +442,7 @@ def sms_gameresults(group, home_vs_away, season):
                         text = '%s wins by being %d off and you owe %s coffee who was off %d. You\'re off by %d. %s.' % \
                             (winner.name, winner.delta, coffee_winner.name, coffee_winner.delta, person.delta, random.choice(loser_msg))
                     else:
-                        text = 'Cherina Kesuma wins by being 5 off. You were off by 15. Loser.' % \
+                        text = '%s wins by being %d off and you were %d off. %s' % \
                             (winner.name, winner.delta, person.delta, random.choice(loser_msg))
 
             # text += ' http://%s/%s/%s/' % (config.get('Predictions', 'HTTPHOST'), group, home_vs_away)
