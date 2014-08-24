@@ -263,7 +263,12 @@ def sms_reminder(group):
 
     # Going to bug people differently based on the time of the day prior to the gameday.
     # i.e start SMS'ing people at noon, harassing by 3pm and full out barrage by 5pm
-    nags = [ (17, 'OMFG! Is it really 5pm. Get off your ass.'),
+    nags = [ (22, 'You are bordering on disqualification!'),
+             (21, 'Wow. I\'m speechless... cause I\'m dying.'),
+             (20, 'It\'s not movie time, it\'s predictions time!'),
+             (19, 'Did I interupt dinner? Well, get to it!'),
+             (18, 'We need it, we need it!'),
+             (17, 'OMFG! Is it really 5pm. Get off your ass.'),
              (15, 'Seriously, people are waiting on you.'),
              (12, 'Okay man, you should read your email.')]
     message = ''
@@ -568,7 +573,7 @@ class AdminURL:
             web.form.Textbox("Home", value=""),
             web.form.Textbox("Away", value=""),
             web.form.Textbox("Datetime", value=""),
-            web.form.Textbox("Season", value=current_season()),
+            web.form.Textbox("season", value=current_season()),
             web.form.Password('password', value=""),
             )
 
@@ -577,7 +582,13 @@ class AdminURL:
 
     def POST(self, group):
         i = web.input(auth="bogus", season=current_season())
-        groupplay = getgroup(group, i.season)
+        try:
+            # Could be creating a new season
+            groupplay = getgroup(group, i.season)
+        except Exception, e:
+            newseason(group, i.season)
+            groupplay = getgroup(group, i.season)
+
         gametime = dateparse(i.Datetime)
         if not gametime:
             msg = 'Sorry. Could not parse the date of "%s". Try a format of: YYYY-MM-DD HH:MM (%s)' % (str(i.Datetime), str(gametime))
@@ -595,7 +606,7 @@ class AdminURL:
                 web.form.Textbox("Home", value=i.Home),
                 web.form.Textbox("Away", value=i.Away),
                 web.form.Textbox("Datetime", value=i.Datetime),
-                web.form.Textbox("Season", value=current_season()),
+                web.form.Textbox("season", value=current_season()),
                 web.form.Password('password', value=""),
                 )
             return render.admin(group, games, myform, msg)
@@ -603,7 +614,7 @@ class AdminURL:
         #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, input.auth)
         # FIXME: Should be checking the group's admin password here and perhaps OR'ing it with the 'mpass'
         if i.password == config.get('Predictions', 'mpass'):
-            nextgame = Games(hometeam=i.Home, awayteam=i.Away, gametime=gametime, season=i.Season, hscore=-1, ascore=-1)
+            nextgame = Games(hometeam=i.Home, awayteam=i.Away, gametime=gametime, season=i.season, hscore=-1, ascore=-1)
             betting  = Betting(game=nextgame, group=groupplay)
             session.commit()
             return web.seeother('http://%s/%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), group, quote(i.Home), quote(i.Away)))

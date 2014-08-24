@@ -1,5 +1,6 @@
 from elixir import *
 from sqlalchemy import and_, func
+from datetime import datetime
 
 #-Database-----------------------------------------
 
@@ -139,3 +140,26 @@ def getundecided(group, game):
     predictions = getpredictions(group, game)
     undecided = [ p for p in getpeople(group, game.season) if p.name not in [ pdt.person.name for pdt in predictions ] ]
     return undecided
+
+def newseason(group, season):
+    """ Create a new season for the particular group """
+    last_season = str(int(season) -1)
+    last_group = getgroup(group, season=last_season)
+    new_group = GroupPlay(
+        name         = last_group.name,
+        description  = last_group.description,
+        season       = season,  # NEW
+        hometeam     = last_group.hometeam,
+        shorturl     = last_group.shorturl,
+        created      = datetime.now(),
+        picture      = last_group.picture,
+        prize        = last_group.prize,
+        prize_pic    = last_group.prize_pic,
+        admin        = last_group.admin,
+    )
+    # Now we need to add the same people to this season
+    for person in getpeople(group, season=last_season):
+        Membership(person=person, group=new_group)
+
+    session.commit()
+
