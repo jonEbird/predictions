@@ -34,7 +34,6 @@ urls = (
     '/([^/]*)/([^/]*)/', 'PredictionsURL',
     '/([^/]*)/([^/]*)/final', 'FinalscoreURL',
     '/([^/]*)/([^/]*)/([^/]*)/', 'PredictURL',
-    '/([^/]*)/creategame/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)/(.*)', 'CreategameURL',
     '/([^/]*)/admin', 'AdminURL',
     '/([^/]*)/email', 'EmailURL',
     '/([^/]*)/mugs', 'Mugs',
@@ -65,6 +64,7 @@ def game_info(group, home_vs_away, season=current_season()):
     """Returns useful Game object with the following objects available:
     - done (boolean) - Is the game over?
     - started (boolean) - Has it started?
+    - display (boolean) - Has betting begun?
     - showpredictions (boolean) - Okay to show predictions?
     - url (string) - Fully qualified URL for the game.
     - stats (dict) - Keys 'mean', 'stddev', 'penalty'
@@ -77,10 +77,12 @@ def game_info(group, home_vs_away, season=current_season()):
     """
     try:
         game = getgamebyversus(home_vs_away, season)
-        game.done = (game.hscore != -1)
+        game.done = (game.hscore > -1)
 
         now =  datetime.now()
         game.started = now > game.gametime
+
+        game.display = (game.hscore == -1)
 
         game.url = 'http://%s/%s/%s_vs_%s/?season=%s' % \
             (config.get('Predictions', 'HTTPHOST'), group, quote(game.hometeam), quote(game.awayteam), season)
@@ -476,6 +478,24 @@ def print_sms_messages():
 
     print '%d messages sent for an average of %fs to complete the message.' % (stat_n, stat_tot / stat_n)
 
+def update_betting_games(group, season):
+    """ Ensure that the next game is queued for betting """
+    groupplay = getgroup(group, season)
+    betting = Betting.query.filter(Betting.group==groupplay).all()
+    games = [ bet.game for bet in betting ]
+    for game in games:
+        if game.hscore > -1:
+            continue
+        if game.hscore == -1:
+            # This is the next game up for betting. All is prepped.
+            return True
+        if game.hscore == -2:
+            # Should only hit here if there is no next game and you need to
+            # update a future queued game to be next up
+            game.hscore = -1
+            session.commit()
+            return True
+    return False
 
 class Mugs:
     def GET(self, group):
@@ -563,12 +583,11 @@ class AdminURL:
         for i in range(len(games)):
             game = games[i]
             # first, it is over?
-            game.done = (game.hscore != -1)
+            game.done = (game.hscore > -1)
             # Now help out the templating engine
             game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
             games[i] = game
 
-        # /creategame/OSU/Marshall/2010/9/2/19/30?auth=<password>
         myform = web.form.Form(
             web.form.Textbox("Home", value=""),
             web.form.Textbox("Away", value=""),
@@ -586,8 +605,11 @@ class AdminURL:
             # Could be creating a new season
             groupplay = getgroup(group, i.season)
         except Exception, e:
-            newseason(group, i.season)
-            groupplay = getgroup(group, i.season)
+            if i.password == config.get('Predictions', 'mpass'):
+                newseason(group, i.season)
+                groupplay = getgroup(group, i.season)
+            else:
+                return web.seeother('http://%s/%s/admin' % (config.get('Predictions', 'HTTPHOST'), group))
 
         gametime = dateparse(i.Datetime)
         if not gametime:
@@ -598,7 +620,7 @@ class AdminURL:
             for n in range(len(games)):
                 game = games[n]
                 # first, it is over?
-                game.done = (game.hscore != -1)
+                game.done = (game.hscore > -1)
                 # Now help out the templating engine
                 game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
                 games[n] = game
@@ -614,14 +636,18 @@ class AdminURL:
         #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, input.auth)
         # FIXME: Should be checking the group's admin password here and perhaps OR'ing it with the 'mpass'
         if i.password == config.get('Predictions', 'mpass'):
-            nextgame = Games(hometeam=i.Home, awayteam=i.Away, gametime=gametime, season=i.season, hscore=-1, ascore=-1)
+            nextgame = Games(hometeam=i.Home, awayteam=i.Away, gametime=gametime, season=i.season, hscore=-2, ascore=-1)
             betting  = Betting(game=nextgame, group=groupplay)
             session.commit()
+
+            update_betting_games(group, i.season)
+
             return web.seeother('http://%s/%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), group, quote(i.Home), quote(i.Away)))
         else:
             return 'Sorry, can not help you. That is not the right password.'
 
 class GamesURL:
+    """ Main page to show all of the games and season stats """
     def GET(self, group):
         i = web.input(season=current_season())
         selected_season = i.season
@@ -632,7 +658,7 @@ class GamesURL:
         # 1. Games
         groupplay = getgroup(group, i.season)
         betting = Betting.query.filter(Betting.group==groupplay).all()
-        games = [ bet.game for bet in betting ]
+        games = [ bet.game for bet in betting if bet.game.hscore > -2 ]
         # 2. People
         people = getpeople(group, i.season)
         # people = [ m.person for m in Membership.query.filter(Membership.group==groupplay).all() ]
@@ -711,6 +737,7 @@ class PredictionsURL:
             return 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
 
     def POST(self, group, home_vs_away):
+        """ Post in-game comments with score updates by our predictors """
         try:
             i = web.input(season=current_season())
             groupplay = getgroup(group, i.season)
@@ -725,7 +752,7 @@ class PredictionsURL:
             session.commit() # fixes caching?
             person = Person.query.filter_by(password=password).one()
             game = getgamebyversus(home_vs_away, i.season)
-            game.done = game.hscore != -1
+            game.done = game.hscore > -1
 
             # Insert InGameScores commentary by our fellow player
             if not game.done:
@@ -736,19 +763,6 @@ class PredictionsURL:
             return 'DEBUG: Got an error: %s' % (str(e))
             pass
         return web.seeother('http://%s/%s/%s/' % (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
-
-class CreategameURL:
-    def GET(self, group, home, away, year, mon, day, hour, min):
-        """Example URL would be /creategame/OSU/Marshall/2010/9/2/19/30?auth=<password>"""
-        i = web.input(auth="bogus", season=current_season())
-        gametime = datetime(int(year), int(mon), int(day), int(hour), int(min))
-        #print 'You want to pit %s against %s on %s via authorization "%s"?' % (home, away, gametime, i.auth)
-        if i.auth == config.get('Predictions', 'mpass'):
-            nextgame = Game(hometeam=home, awayteam=away, gametime=gametime, hscore=-1, ascore=-1, season=i.season)
-            session.commit()
-            return web.seeother('http://%s/%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), group, home, away))
-        else:
-            return 'Sorry, can not help you.'
 
 class FinalscoreURL:
     def GET(self, group, home_vs_away):
@@ -777,6 +791,8 @@ class FinalscoreURL:
                 game.hscore = int(getattr(i,hometeam))
                 game.ascore = int(getattr(i,awayteam))
                 session.commit()
+
+                update_betting_games(group, i.season)
 
                 # Send out a SMS message about the winners
                 sms_gameresults(group, home_vs_away, i.season)
