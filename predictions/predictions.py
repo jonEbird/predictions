@@ -482,6 +482,7 @@ def update_betting_games(group, season):
     """ Ensure that the next game is queued for betting """
     groupplay = getgroup(group, season)
     betting = Betting.query.filter(Betting.group==groupplay).all()
+    betting.sort(key=lambda g: g.game.gametime)
     games = [ bet.game for bet in betting ]
     for game in games:
         if game.hscore > -1:
@@ -579,6 +580,7 @@ class AdminURL:
         # games = Games.query.filter(Games.season==i.season).order_by(Games.gametime).all()
         groupplay = getgroup(group, i.season)
         betting = Betting.query.filter(Betting.group==groupplay).all()
+        betting.sort(key=lambda g: g.game.gametime)
         games = [ bet.game for bet in betting ]
         for i in range(len(games)):
             game = games[i]
@@ -615,6 +617,7 @@ class AdminURL:
         if not gametime:
             msg = 'Sorry. Could not parse the date of "%s". Try a format of: YYYY-MM-DD HH:MM (%s)' % (str(i.Datetime), str(gametime))
             betting = Betting.query.filter(Betting.group==groupplay).all()
+            betting.sort(key=lambda g: g.game.gametime)
             games = [ bet.game for bet in betting ]
             # games = Games.query.filter(Games.season==i.season).order_by(Games.gametime).all()
             for n in range(len(games)):
@@ -658,6 +661,7 @@ class GamesURL:
         # 1. Games
         groupplay = getgroup(group, i.season)
         betting = Betting.query.filter(Betting.group==groupplay).all()
+        betting.sort(key=lambda g: g.game.gametime)
         games = [ bet.game for bet in betting if bet.game.hscore > -2 ]
         # 2. People
         people = getpeople(group, i.season)

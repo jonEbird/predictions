@@ -32,6 +32,7 @@ $if msg:
 <ul>
 $for game in games:
     <li><p class="game">
+    On $game.gametime.strftime('%A, %b %d at %H:%M (w%U)')
     $if game.done:
         $game.hometeam ($game.hscore) - $game.awayteam ($game.ascore)
     $else:

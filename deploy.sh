@@ -32,11 +32,19 @@ elif [ "$1" == "pulldb" ]; then
     echo "Pulling DB from prod"
     ssh linbird "cat /var/www/buckeyepredictions/predictions/predictions.sqlite" | sudo -u apache tee /var/www/buckeyepredictions/predictions/predictions.sqlite >/dev/null
     exit 0
+elif [ "$1" == "prod" ]; then
+    # git archive --format=tar.gz HEAD | ssh linbird "tar -C /var/www/buckeyepredictions -xzvf -"
+    git ls-files | \
+        xargs ls 2>&- | \
+        xargs tar -cf - | \
+        ssh linbird "tar -C /var/www/buckeyepredictions -xvf -"
+    ssh linbird "service httpd restart"
+    exit 0
 fi
 
 git ls-files |\
   xargs ls 2>&- |\
-  xargs tar -cf - |\
+  xargs tar -c --owner=apache f - |\
   sudo -u apache tar -C /var/www/buckeyepredictions -xvf -
 
 sudo service httpd restart
