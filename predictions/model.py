@@ -120,6 +120,25 @@ def getgroup(group, season=current_season()):
 def getpeople(group, season=current_season()):
     return [ member.person for member in Membership.query.filter(Membership.group==getgroup(group, season)).all() ]
 
+def addmember(group, name, season=current_season()):
+    """Add person as a member of the group for the given season
+
+    Sometimes people do not participate in one year but re-join the
+    following year.
+
+    Args:
+      group (str): name of group (e.g. "bucknuts")
+      name (str): name of player. (e.g. "Jon Miller")
+    """
+    group_obj = getgroup(group, season)
+    try:
+        # FIXME: Terrible that I am not restricting my search to the group
+        person = Person.query.filter(Person.name == name).one()
+    except:
+        return False
+    Membership(person=person, group=group_obj)
+    session.commit()
+
 def getperson(group, name, season=current_season()):
     person = filter(lambda x: x.name == name, getpeople(group, season))
     if person:
