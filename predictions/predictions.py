@@ -372,6 +372,9 @@ Thank you for getting your prediction in. You're a true fan.
 As a reminder, you put %s(%d) - %s(%d)
 If you need to update it, you still can at %s%s/
 
+Or you can review the spread information and/or further opponent data:
+http://www.espn.com/college-football/team/fpi?id=194&year=2016
+
 But what I really need from you is to help bug the people who haven't put their predictions in yet.
 Please go nag:
   %s
@@ -406,11 +409,9 @@ Need to get your prediction in for the %s vs. %s game.
 
 Go to %s%s/
 
-I suggest going to the OSU page, then clicking on the opponent to get a feel for them:
-http://www.espn.com/college-football/team/_/id/194/ohio-state-buckeyes
-
-You can also view the spread here:
-http://www.espn.com/college-football/lines
+Here is a nice summary page for OSU's schedule where you can click on the
+opponents and also see spread information:
+http://www.espn.com/college-football/team/fpi?id=194&year=2016
 
 And good luck,
 The Gamemaster.'
