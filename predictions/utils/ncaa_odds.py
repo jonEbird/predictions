@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 
-import os, sys, urllib, re
+import sys
+import urllib
+import re
+
 from lxml.html import fromstring, tostring
 
 ODDS_URL = 'http://sportsdirect.usatoday.com/odds/usatoday/ncaaf.aspx'
 TEAM_NICKS = {'OSU': 'Ohio State'}
+
 
 def get_odds(home_vs_away):
     hometeam, awayteam = home_vs_away.split('_vs_')
@@ -27,6 +31,7 @@ def get_odds(home_vs_away):
         raise '<p>Can not find odds for %s vs %s</p>' % (hometeam, awayteam)
     else:
         return re.sub('bgcolor="[^"]*"', '', tostring(teamline))
+
 
 if __name__ == '__main__':
 

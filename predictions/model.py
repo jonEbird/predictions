@@ -7,6 +7,7 @@ from datetime import datetime
 metadata.bind = 'sqlite:///predictions.sqlite'
 metadata.bind.echo = False
 
+
 class Games(Entity):
     using_options(tablename='games')
     hometeam     = Field(String(30))
@@ -23,6 +24,7 @@ class Games(Entity):
     def __repr__(self):
         return '<Game %s vs. %s on %s>' % (self.hometeam, self.awayteam, self.gametime)
 
+
 class Predictions(Entity):
     using_options(tablename='predictions')
     home   = Field(Integer)
@@ -35,6 +37,7 @@ class Predictions(Entity):
     def __repr__(self):
         return '<Prediction by %s for the %s game>' % (self.person.name, self.game)
 
+
 class InGameScores(Entity):
     using_options(tablename='ingamescores')
     home    = Field(Integer)
@@ -45,7 +48,9 @@ class InGameScores(Entity):
     group   = ManyToOne('GroupPlay')
 
     def __repr__(self):
-        return '<InGameScores %s(%d) - %s(%d) "%s">' % (self.game.hometeam, self.home, self.game.awayteam, self.away, self.comment)
+        return '<InGameScores %s(%d) - %s(%d) "%s">' % (self.game.hometeam, self.home,
+                                                        self.game.awayteam, self.away, self.comment)
+
 
 class GroupPlay(Entity):
     using_options(tablename='groupplay')
@@ -63,13 +68,17 @@ class GroupPlay(Entity):
     def __repr__(self):
         return '<GroupPlay %s for the %d season>' % (self.name, self.season)
 
+
 class Membership(Entity):
     using_options(tablename='membership')
     person = ManyToOne('Person')
     group  = ManyToOne('GroupPlay')
 
     def __repr__(self):
-        return '<Membership of %s with the %s group on the %d season>' % (self.person.name, self.group.name, self.group.season)
+        return '<Membership of %s with the %s group on the %d season>' % (self.person.name,
+                                                                          self.group.name,
+                                                                          self.group.season)
+
 
 class Betting(Entity):
     using_options(tablename='betting')
@@ -78,6 +87,7 @@ class Betting(Entity):
 
     def __repr__(self):
         return '<Betting on the %s game from the %s group>' % (self.game, self.group.name)
+
 
 class Person(Entity):
     using_options(tablename='people')
@@ -100,25 +110,35 @@ setup_all(True)
 #----------------------------------------------------------------------
 # Helper functions
 
+
 def getgamebyversus(home_vs_away, season):
     try:
         hometeam, awayteam = home_vs_away.split('_vs_')
-        return Games.query.filter(and_(Games.hometeam==hometeam, Games.awayteam==awayteam, Games.season==season)).one()
-    except (Exception), e:
+        return Games.query.filter(and_(Games.hometeam == hometeam,
+                                       Games.awayteam == awayteam,
+                                       Games.season == season)).one()
+    except (Exception):
         return ''
+
 
 def current_season():
     return session.query(func.max(Games.season).select()).one()[0]
 
+
 def get_seasons():
     return sorted([ x[0] for x in session.query(func.distinct(Games.season).select()).all() ])
 
+
 def getgroup(group, season=current_season()):
     """Find the group by the shorturl group name (seen from URLs) and the season"""
-    return GroupPlay.query.filter(and_(GroupPlay.season==season, GroupPlay.shorturl==group)).one()
+    return GroupPlay.query.filter(and_(GroupPlay.season == season,
+                                       GroupPlay.shorturl == group)).one()
+
 
 def getpeople(group, season=current_season()):
-    return [ member.person for member in Membership.query.filter(Membership.group==getgroup(group, season)).all() ]
+    members = Membership.query.filter(Membership.group == getgroup(group, season)).all()
+    return [member.person for member in members]
+
 
 def addmember(group, name, season=current_season()):
     """Add person as a member of the group for the given season
@@ -139,6 +159,7 @@ def addmember(group, name, season=current_season()):
     Membership(person=person, group=group_obj)
     session.commit()
 
+
 def getperson(group, name, season=current_season()):
     person = filter(lambda x: x.name == name, getpeople(group, season))
     if person:
@@ -146,23 +167,32 @@ def getperson(group, name, season=current_season()):
     else:
         return None
 
+
 def getpredictions(group, game):
     """Return a list of Prediction objects.
     Args: 'group' is a string and 'game' is a Game object"""
     groupplay = getgroup(group, game.season)
-    predictions = Predictions.query.filter(and_(Predictions.group==groupplay, Predictions.game==game)).all()
+    predictions = Predictions.query.filter(and_(Predictions.group == groupplay,
+                                                Predictions.game == game)).all()
     return predictions
+
 
 def getundecided(group, game):
     """Return a list of Person objects.
-    Args: 'group' is a string and 'game' is a Game object"""
+
+    Args:
+      group (str)
+      game (Game)
+    """
     predictions = getpredictions(group, game)
-    undecided = [ p for p in getpeople(group, game.season) if p.name not in [ pdt.person.name for pdt in predictions ] ]
+    already_predicted = [ pdt.person.name for pdt in predictions ]
+    undecided = [p for p in getpeople(group, game.season) if p.name not in already_predicted]
     return undecided
+
 
 def newseason(group, season):
     """ Create a new season for the particular group """
-    last_season = str(int(season) -1)
+    last_season = str(int(season) - 1)
     last_group = getgroup(group, season=last_season)
     new_group = GroupPlay(
         name         = last_group.name,
@@ -181,4 +211,3 @@ def newseason(group, season):
         Membership(person=person, group=new_group)
 
     session.commit()
-
