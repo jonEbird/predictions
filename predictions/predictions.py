@@ -8,6 +8,7 @@ import traceback
 import shutil
 import tempfile
 import random
+import logging
 
 from datetime import datetime, timedelta
 from math import sqrt, pow
@@ -250,8 +251,7 @@ def sms_message(group, msg):
         return
     sms = SMS(config.get('Twilio', 'twilio_num'),
               config.get('Twilio', 'twilio_account'),
-              config.get('Twilio', 'twilio_token'),
-              debug=1)
+              config.get('Twilio', 'twilio_token'))
     for person in getpeople(group, current_season()):
         if config.get('Predictions', 'mode') == 'dev' and \
            person.name != config.get('Testing', 'testing_name'):
@@ -316,7 +316,7 @@ def sms_reminder(group):
                    "It's me again.",
                    "Its that time of the week.",
                    "I love football, how about you?")),
-    ]
+             ]
     message = ''
     for H, msgs in nags:
         if now.hour >= H:
@@ -326,8 +326,7 @@ def sms_reminder(group):
     if message and config.has_section('Twilio'):
         sms = SMS(config.get('Twilio', 'twilio_num'),
                   config.get('Twilio', 'twilio_account'),
-                  config.get('Twilio', 'twilio_token'),
-                  debug=1)
+                  config.get('Twilio', 'twilio_token'))
         for game in Games.query.filter(and_(Games.gametime < midnight_tomorrow, Games.gametime > now)).all():
 
             undecided = getundecided(group, game)
@@ -366,6 +365,7 @@ def email_reminder(group):
                        person.name != config.get('Testing', 'testing_name'):
                         continue
 
+                    # TODO: Use dedent
                     body = """
 Thank you for getting your prediction in. You're a true fan.
 
@@ -373,7 +373,7 @@ As a reminder, you put %s(%d) - %s(%d)
 If you need to update it, you still can at %s%s/
 
 Or you can review the spread information and/or further opponent data:
-http://www.espn.com/college-football/team/fpi?id=194&year=2016
+http://www.espn.com/college-football/team/fpi?id=194&year=%s
 
 But what I really need from you is to help bug the people who haven't put their predictions in yet.
 Please go nag:
@@ -382,7 +382,7 @@ Please go nag:
 Thank you,
 The Gamemaster.
 """ % (game.hometeam, pdt.home, game.awayteam, pdt.away,
-       GAME_URL, quote(person.name),
+       GAME_URL, quote(person.name), game.season,
        ', '.join([ p.name for p in undecided ]))
 
                     me = config.get('Predictions', 'EMAILADDR')
@@ -411,12 +411,13 @@ Go to %s%s/
 
 Here is a nice summary page for OSU's schedule where you can click on the
 opponents and also see spread information:
-http://www.espn.com/college-football/team/fpi?id=194&year=2016
+http://www.espn.com/college-football/team/fpi?id=194&year=%s
 
 And good luck,
 The Gamemaster.'
-""" % (game.hometeam, game.awayteam, GAME_URL, quote(person.name))
+""" % (game.hometeam, game.awayteam, GAME_URL, quote(person.name), game.season)
 
+                # TODO: remove duplicate code
                 me = config.get('Predictions', 'EMAILADDR')
                 toaddr = person.email.split(',')
 
@@ -471,15 +472,15 @@ def sms_gameresults(group, home_vs_away, season):
     try:
         game = game_info(group, home_vs_away, season)
 
-        happy_msg = ['High Five', 'Niceeee', 'Raise the roof', 'Hot Dog!', 'Kazaam!', 'Great Work',
-                     'You\'re awesome', 'How can I be like you?', 'Help me next time',
-                     'Its like you\'re psychic']
-        loser_msg = ['Sucker', 'Y U Mad?', 'Try Again', 'Sucks to be you', 'Need a friend to talk to?',
-                     'Ah, shucks!', 'Darn it!', 'Hahaha', 'Maybe Next time?', 'Don\'t quit on me, though',
-                     'Try asking Jon next time', 'Pisser!', 'Bugger', 'Tossers', 'Bloody Hell', 'Bollocks',
-                     'Least you have your health', 'Estupido', 'Sorry', 'Try a Popsicle. Will make you happy.',
-                     'We can\'t all be winners', 'Some days you win, today you lose', 'Glad I\'m not you. Beep beep.',
-                     'Try thinking harder next time']
+        happy_msg = ["High Five", "Niceeee", "Raise the roof", "Hot Dog!", "Kazaam!", "Great Work",
+                     "You're awesome", "How can I be like you?", "Help me next time",
+                     "Its like you're psychic", "Ain't life grand?", "W00t!"]
+        loser_msg = ["Sucker", "Y U Mad?", "Try Again", "Sucks to be you", "Need a friend to talk to?",
+                     "Ah, shucks!", "Darn it!", "Hahaha", "Maybe Next time?", "Don't quit on me, though",
+                     "Try asking Jon next time", "Pisser!", "Bugger", "Tossers", "Bloody Hell", "Bollocks",
+                     "Least you have your health", "Estupido", "Sorry", "Try a Popsicle. Will make you happy.",
+                     "We can't all be winners", "Some days you win, today you lose", "Glad I'm not you. Beep beep.",
+                     "Try thinking harder next time"]
 
         winner = game.people[0]
         coffee_winner = [ p for p in game.people if p.betting ][0]
@@ -488,8 +489,7 @@ def sms_gameresults(group, home_vs_away, season):
             return
         sms = SMS(config.get('Twilio', 'twilio_num'),
                   config.get('Twilio', 'twilio_account'),
-                  config.get('Twilio', 'twilio_token'),
-                  debug=1)
+                  config.get('Twilio', 'twilio_token'))
 
         for person in game.people:
             if config.get('Predictions', 'mode') == 'dev' and \
@@ -544,14 +544,12 @@ def sms_gameresults(group, home_vs_away, season):
 def print_sms_messages():
     sms = SMS(config.get('Twilio', 'twilio_num'),
               config.get('Twilio', 'twilio_account'),
-              config.get('Twilio', 'twilio_token'),
-              debug=1)
+              config.get('Twilio', 'twilio_token'))
     num2name = dict([ ('+1%s' % p.phonenumber, p.name) for p in Person.query.all() ])
     stat_n, stat_tot = 0, 0.0
     for m in sms.get_messages():
-        date_created = datetime.strptime(m.date_created, '%a, %d %b %Y %H:%M:%S +%f')
-        date_sent    = datetime.strptime(m.date_sent,    '%a, %d %b %Y %H:%M:%S +%f')
-        date_updated = datetime.strptime(m.date_updated, '%a, %d %b %Y %H:%M:%S +%f')
+        date_created = m.date_created  # datetime.strptime(m.date_created, '%a, %d %b %Y %H:%M:%S +%f')
+        date_sent    = m.date_sent  # datetime.strptime(m.date_sent,    '%a, %d %b %Y %H:%M:%S +%f')
         ts = (date_sent - date_created).total_seconds()
         # Stats
         stat_n   += 1
@@ -1022,7 +1020,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Predictions Admin Utility')
     parser.add_argument('--group', required=True, help='Which group are we operating on?')
     parser.add_argument('--adduser', help='Create a new user', action='store_true', default=False)
-    # Nugde people or send a normal message via SMS or Email
+    # Nudge people or send a normal message via SMS or Email
     parser.add_argument('--nudge', '--remind', dest='reminder', action='store_true', default=False,
                         help='Remind people to make a prediction (Pick a method)')
     parser.add_argument('--message', dest='message',

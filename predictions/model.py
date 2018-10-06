@@ -152,11 +152,35 @@ def addmember(group, name, season=current_season()):
     """
     group_obj = getgroup(group, season)
     try:
-        # FIXME: Terrible that I am not restricting my search to the group
         person = Person.query.filter(Person.name == name).one()
     except:
         return False
     Membership(person=person, group=group_obj)
+    session.commit()
+
+
+def remove_member(group, name, season=current_season()):
+    """Remove a user from a particular season
+
+    Args:
+      group (str): name of the group. E.g. "bucknuts"
+      name (str): name of the user. E.g. "Joe Blow"
+      season (int): season year
+    Returns:
+      bool: success in removing the user from this season
+    """
+    group_obj = getgroup(group, season)
+    try:
+        person = Person.query.filter(Person.name == name).one()
+    except:
+        return False
+    # First remove predictions from this season
+    season_picks = Predictions.query.filter(and_(Predictions.group == group_obj,
+                                                 Predictions.person == person)).all()
+    map(session.delete, season_picks)
+    # Then remove membership from this season all together
+    club_pass = Membership.query.filter(and_(Membership.person == person, Membership.group == group_obj)).one()
+    session.delete(club_pass)
     session.commit()
 
 
