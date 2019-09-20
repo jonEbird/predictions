@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/usr/bin/env python
 
 import os
 import sys
@@ -299,7 +299,7 @@ def sms_reminder(group):
                    "You make me sad.")),
              (18, ("We need it, we need it!",
                    "Waiting until dinner time?",
-                   "Urban Called.. he's waiting too.",
+                   "Coach called.. he's waiting too.",
                    "You've had enough time.")),
              (17, ("Wow! Is it really 5pm.",
                    "Get up and get to your computer.",
@@ -307,7 +307,7 @@ def sms_reminder(group):
                    "How did the day get this late?")),
              (15, ("Seriously, people are waiting on you.",
                    "I was being nice.",
-                   "Urban Called.. he's waiting too.",
+                   "Coach called.. he's waiting too.",
                    "Lets think football.",
                    "What could be more important than predictions?")),
              (12, ("Time to read your email.",
@@ -475,12 +475,11 @@ def sms_gameresults(group, home_vs_away, season):
         happy_msg = ["High Five", "Niceeee", "Raise the roof", "Hot Dog!", "Kazaam!", "Great Work",
                      "You're awesome", "How can I be like you?", "Help me next time",
                      "Its like you're psychic", "Ain't life grand?", "W00t!"]
-        loser_msg = ["Sucker", "Y U Mad?", "Try Again", "Sucks to be you", "Need a friend to talk to?",
-                     "Ah, shucks!", "Darn it!", "Hahaha", "Maybe Next time?", "Don't quit on me, though",
-                     "Try asking Jon next time", "Pisser!", "Bugger", "Tossers", "Bloody Hell", "Bollocks",
-                     "Least you have your health", "Estupido", "Sorry", "Try a Popsicle. Will make you happy.",
-                     "We can't all be winners", "Some days you win, today you lose", "Glad I'm not you. Beep beep.",
-                     "Try thinking harder next time"]
+        loser_msg = ["Sorry", "Try Again", "Need a friend to talk to?",
+                     "Ah, shucks!", "Darn it!", "Maybe Next time?", "Don't quit on me, though",
+                     "Try asking Jon next time", "Ice Cream cheers me up",
+                     "Least you have your health", "Try a Popsicle. Will make you happy",
+                     "We can't all be winners", "Some days you win, today you lose", "Beep beep"]
 
         winner = game.people[0]
         coffee_winner = [ p for p in game.people if p.betting ][0]
@@ -517,7 +516,7 @@ def sms_gameresults(group, home_vs_away, season):
 
                 # Is that person you?
                 if person == winner:
-                    text = 'Lucky SOB, you win by being off by %d! %s' % \
+                    text = 'Congrats! You win by being off by %d! %s' % \
                         (person.delta, random.choice(happy_msg))
                 elif person == coffee_winner:
                     text = '%s wins by being %d off but you WIN coffee being %d off. %s' % \

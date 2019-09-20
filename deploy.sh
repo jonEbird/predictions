@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e 
+set -e
 
 cd "$(dirname "$0")"
 SRC_DIR=$(pwd)
@@ -17,14 +17,17 @@ TESTING="no"
 MODE="dev"
 [ "$1" == '-n' ] && { shift; TESTING="yes"; }
 
-# Other ways to use this script
-# 1. Pull production DB
 if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
     usage
     exit 0
-elif [ "$1" == "pulldb" ]; then
+fi
+
+# Other ways to use this script
+# 1. Pull production DB
+if [ "$1" == "pulldb" ]; then
     echo "Pulling DB from prod"
-    ssh linbird "cat /var/www/buckeyepredictions/predictions/predictions.sqlite" | sudo -u apache tee /var/www/buckeyepredictions/predictions/predictions.sqlite >/dev/null
+    ssh linbird "cat /var/www/buckeyepredictions/predictions/predictions.sqlite" \
+        | sudo -u apache tee /var/www/buckeyepredictions/predictions/predictions.sqlite >/dev/null
     exit 0
 elif [ "$1" == "prod" ]; then
     MODE="prod"
