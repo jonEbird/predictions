@@ -53,6 +53,15 @@ urls = (
 render = web.template.render('templates/')
 
 
+def utf8(s):
+    """Return a unicode version of input s"""
+    if isinstance(s, unicode):
+        return s.encode('utf-8')
+    # if isinstance(s, bytes):
+    #     return s.decode("utf-8")
+    return s
+
+
 def custom_msg(msg, person):
     msg_custom = msg
     msg_custom = msg_custom.replace('%{name}', person.name)
@@ -93,6 +102,7 @@ def game_info(group, home_vs_away, season=current_season()):
     try:
         game = getgamebyversus(home_vs_away, season)
         game.done = (game.hscore > -1)
+        game.canceled = game.hscore == 0 and game.ascore == 0
 
         now = datetime.now()
         game.started = now > game.gametime
@@ -229,7 +239,7 @@ def game_info(group, home_vs_away, season=current_season()):
 
         # Final piece of business is deciding who wins coffee
         betters_index = [ i for (i, person) in enumerate(people) if person.betting ]
-        if betters_index:
+        if betters_index and not game.canceled:
             people[betters_index[0]].winningcoffee = True
 
         game.people = people
@@ -274,8 +284,8 @@ def email_message(group, subject, msg):
         me = config.get('Predictions', 'EMAILADDR')
         toaddr = person.email.split(',')
 
-        mailmsg = MIMEText(custom_msg(msg, person))
-        mailmsg['Subject'] = custom_msg(subject, person)
+        mailmsg = MIMEText(utf8(custom_msg(msg, person)))
+        mailmsg['Subject'] = utf8(custom_msg(subject, person))
         mailmsg['From'] = me
         mailmsg['To'] = person.email
 
@@ -468,7 +478,7 @@ def email_predictions(group, home_vs_away):
         print 'Sorry. Something happened while trying to email: %s' % (str(e))
 
 
-def sms_gameresults(group, home_vs_away, season):
+def sms_gameresults(group, home_vs_away, season, overriding_msg=""):
     try:
         game = game_info(group, home_vs_away, season)
 
@@ -495,8 +505,11 @@ def sms_gameresults(group, home_vs_away, season):
                person.name != config.get('Testing', 'testing_name'):
                 continue
 
+            if overriding_msg:
+                text = overriding_msg
+
             # Either one winner
-            if winner == coffee_winner:
+            elif winner == coffee_winner:
                 # Coffee better won
 
                 # Is that person you?
@@ -890,6 +903,7 @@ class FinalscoreURL:
             myform = web.form.Form(
                 web.form.Textbox(hometeam, value=""),
                 web.form.Textbox(awayteam, value=""),
+                web.form.Textbox('commentary', value=""),
                 web.form.Password('password', value=""),
             )
 
@@ -907,12 +921,18 @@ class FinalscoreURL:
             if i.password == config.get('Predictions', 'mpass'):
                 game.hscore = int(getattr(i, hometeam))
                 game.ascore = int(getattr(i, awayteam))
+                game.canceled = game.hscore == 0 and game.ascore == 0
+                if game.canceled and i.commentary:
+                    game.odds = i.commentary
                 session.commit()
 
                 update_betting_games(group, i.season)
 
                 # Send out a SMS message about the winners
-                sms_gameresults(group, home_vs_away, i.season)
+                if game.canceled:
+                    sms_gameresults(group, home_vs_away, i.season, overriding_msg=i.commentary)
+                else:
+                    sms_gameresults(group, home_vs_away, i.season)
 
                 return web.seeother('http://%s/%s/%s/' % \
                                     (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
@@ -921,6 +941,7 @@ class FinalscoreURL:
                 myform = web.form.Form(
                     web.form.Textbox(hometeam, value=getattr(i, hometeam)),
                     web.form.Textbox(awayteam, value=getattr(i, awayteam)),
+                    web.form.Textbox('commentary', value=getattr(i, commentary)),
                     web.form.Password('password', value=""),
                 )
 

@@ -62,7 +62,8 @@ $if game.done:
     <p class="person_heading">.</p>
     <p class="team_heading">$game.hometeam<br/>(<span>$game.hscore</span>)</p>
     <p class="team_heading">$game.awayteam<br/>(<span>$game.ascore</span>)</p>
-    <p class="team_heading">&#916;</p>
+    $if not game.canceled:
+        <p class="team_heading">&#916;</p>
 $else:
     <p class="person_heading">.</p>
     <p class="team_heading">$game.hometeam</p>
@@ -76,12 +77,12 @@ $for p in game.people:
           <img class="coffee" src="/static/coffee.jpg" />
     </p>
     $if game.showpredictions:
-        <p class="team1">${p.home if p.predicted else "Poo*"}</p>
-        <p class="team2">${p.away if p.predicted else "Poo*"}</p>
+        <p class="team1">${p.home if p.predicted else "Canceled" if game.canceled else "Poo*"}</p>
+        <p class="team2">${p.away if p.predicted else "Canceled" if game.canceled else "Poo*"}</p>
     $else:
         <p class="team1">${"LOCKED-IN" if p.predicted else "??"}</p>
         <p class="team2">${"LOCKED-IN" if p.predicted else "??"}</p>
-    $if game.done or game.ingamescores:
+    $if (game.done or game.ingamescores) and not game.canceled:
         <p class="delta">$p.delta</p>
     </li>
 </ul>
