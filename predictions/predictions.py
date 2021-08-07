@@ -27,36 +27,48 @@ from utils.ncaa_odds import *
 from utils.sms import *
 from utils.profile import *
 
-#-Configs------------------------------------------
-defaults = { 'mpass': 'bingo', 'mode': 'dev',
-             'EMAILADDR': 'jon@buckeyepredictions.com',
-             'HTTPHOST': 'localhost/predictions',
-             }
+# -Configs------------------------------------------
+defaults = {
+    "mpass": "bingo",
+    "mode": "dev",
+    "EMAILADDR": "jon@buckeyepredictions.com",
+    "HTTPHOST": "localhost/predictions",
+}
 config = configparser.ConfigParser(defaults=defaults)
-config.read(['predictions.config', 'predictions/predictions.config'])
-if not config.has_section('Predictions') or not config.has_section('Testing'):
-    print("Error: Need to configure [predictions/]predictions.config with at least 'Predictions' and 'Testing' sections.")
+config.read(["predictions.config", "predictions/predictions.config"])
+if not config.has_section("Predictions") or not config.has_section("Testing"):
+    print(
+        "Error: Need to configure [predictions/]predictions.config with at least 'Predictions' and 'Testing' sections."
+    )
     sys.exit(-1)
 
-#-Web----------------------------------------------
+# -Web----------------------------------------------
 
 urls = (
-    '/([^/]*)/', 'GamesURL',
-    '/([^/]*)/profile/([^/]*)/', 'ProfileURL',  # group, name
-    '/([^/]*)/([^/]*)/', 'PredictionsURL',
-    '/([^/]*)/([^/]*)/final', 'FinalscoreURL',
-    '/([^/]*)/([^/]*)/([^/]*)/', 'PredictURL',
-    '/([^/]*)/admin', 'AdminURL',
-    '/([^/]*)/email', 'EmailURL',
-    '/([^/]*)/mugs', 'Mugs',
+    "/([^/]*)/",
+    "GamesURL",
+    "/([^/]*)/profile/([^/]*)/",
+    "ProfileURL",  # group, name
+    "/([^/]*)/([^/]*)/",
+    "PredictionsURL",
+    "/([^/]*)/([^/]*)/final",
+    "FinalscoreURL",
+    "/([^/]*)/([^/]*)/([^/]*)/",
+    "PredictURL",
+    "/([^/]*)/admin",
+    "AdminURL",
+    "/([^/]*)/email",
+    "EmailURL",
+    "/([^/]*)/mugs",
+    "Mugs",
 )
-render = web.template.render('templates/')
+render = web.template.render("templates/")
 
 
 def utf8(s):
     """Return a unicode version of input s"""
     if isinstance(s, str):
-        return s.encode('utf-8')
+        return s.encode("utf-8")
     # if isinstance(s, bytes):
     #     return s.decode("utf-8")
     return s
@@ -64,16 +76,18 @@ def utf8(s):
 
 def custom_msg(msg, person):
     msg_custom = msg
-    msg_custom = msg_custom.replace('%{name}', person.name)
-    msg_custom = msg_custom.replace('%{name_url}', quote(person.name))
-    msg_custom = msg_custom.replace('%{nickname}', person.nickname)
-    msg_custom = msg_custom.replace('%{password}', person.password)
-    msg_custom = msg_custom.replace('%{betting}', 'coffee better' if person.betting else 'funsie')
+    msg_custom = msg_custom.replace("%{name}", person.name)
+    msg_custom = msg_custom.replace("%{name_url}", quote(person.name))
+    msg_custom = msg_custom.replace("%{nickname}", person.nickname)
+    msg_custom = msg_custom.replace("%{password}", person.password)
+    msg_custom = msg_custom.replace(
+        "%{betting}", "coffee better" if person.betting else "funsie"
+    )
     return msg_custom
 
 
 def dateparse(date):
-    formats = ('%Y-%m-%d %H:%M', '%m/%d/%y %H:%M', '%Y-%m-%dT%H:%M:%SZ')
+    formats = ("%Y-%m-%d %H:%M", "%m/%d/%y %H:%M", "%Y-%m-%dT%H:%M:%SZ")
     t = None
     for format in formats:
         try:
@@ -101,17 +115,21 @@ def game_info(group, home_vs_away, season=current_season()):
     """
     try:
         game = getgamebyversus(home_vs_away, season)
-        game.done = (game.hscore > -1)
+        game.done = game.hscore > -1
         game.canceled = game.hscore == 0 and game.ascore == 0
 
         now = datetime.now()
         game.started = now > game.gametime
 
-        game.display = (game.hscore == -1)
+        game.display = game.hscore == -1
 
-        game.url = 'http://%s/%s/%s_vs_%s/?season=%s' % \
-            (config.get('Predictions', 'HTTPHOST'), group,
-             quote(game.hometeam), quote(game.awayteam), season)
+        game.url = "http://%s/%s/%s_vs_%s/?season=%s" % (
+            config.get("Predictions", "HTTPHOST"),
+            group,
+            quote(game.hometeam),
+            quote(game.awayteam),
+            season,
+        )
 
         predictions = getpredictions(group, game)
         for i in range(len(predictions)):
@@ -132,23 +150,29 @@ def game_info(group, home_vs_away, season=current_season()):
             else:
                 p.picked_winner = p.home < p.away
             # Other attributes I'd typically want like the person
-            p.name        = p.person.name
-            p.nickname    = p.person.nickname
-            p.email       = p.person.email
+            p.name = p.person.name
+            p.nickname = p.person.nickname
+            p.email = p.person.email
             p.phonenumber = p.person.phonenumber
-            p.password    = p.person.password
-            p.mugshot     = p.person.mugshot
-            p.betting     = p.person.betting
+            p.password = p.person.password
+            p.mugshot = p.person.mugshot
+            p.betting = p.person.betting
             # Reassign
             predictions[i] = p
 
         # Statistics
-        game.stats = {'mean': 0, 'stddev': 0, 'penalty': 20 }
+        game.stats = {"mean": 0, "stddev": 0, "penalty": 20}
         if predictions:
-            game.stats['mean']    = sum([ pd.delta for pd in predictions ]) / len(predictions)
-            game.stats['stddev']  = int(sqrt(sum([ pow(pd.delta - game.stats['mean'], 2)
-                                                   for pd in predictions ]) / len(predictions)))
-            game.stats['penalty'] = int(game.stats['mean'] + (game.stats['stddev'] / 2))
+            game.stats["mean"] = sum([pd.delta for pd in predictions]) / len(
+                predictions
+            )
+            game.stats["stddev"] = int(
+                sqrt(
+                    sum([pow(pd.delta - game.stats["mean"], 2) for pd in predictions])
+                    / len(predictions)
+                )
+            )
+            game.stats["penalty"] = int(game.stats["mean"] + (game.stats["stddev"] / 2))
 
         # Now grab any undecided people
         undecided = getundecided(group, game)
@@ -158,7 +182,7 @@ def game_info(group, home_vs_away, season=current_season()):
         # Now onto adding the expected attributes to these entries as well
         for i in range(len(undecided)):
             p = undecided[i]
-            p.delta = game.stats['penalty']
+            p.delta = game.stats["penalty"]
             p.home = -1
             p.away = -1
             p.predicted = False
@@ -238,7 +262,7 @@ def game_info(group, home_vs_away, season=current_season()):
             people.sort(cmp=prediction_cmp)
 
         # Final piece of business is deciding who wins coffee
-        betters_index = [ i for (i, person) in enumerate(people) if person.betting ]
+        betters_index = [i for (i, person) in enumerate(people) if person.betting]
         if betters_index and not game.canceled:
             people[betters_index[0]].winningcoffee = True
 
@@ -253,18 +277,21 @@ def game_info(group, home_vs_away, season=current_season()):
 
 def sms_message(group, msg):
     """Craft a note to be SMS'ed to everyone. Some smart substitutions can occur such as:
-       %{name}     = name from DB
-       %{name_url} = name from DB urllib.quote'd
-       %{nickname} = nickname from DB
+    %{name}     = name from DB
+    %{name_url} = name from DB urllib.quote'd
+    %{nickname} = nickname from DB
     """
-    if not config.has_section('Twilio'):
+    if not config.has_section("Twilio"):
         return
-    sms = SMS(config.get('Twilio', 'twilio_num'),
-              config.get('Twilio', 'twilio_account'),
-              config.get('Twilio', 'twilio_token'))
+    sms = SMS(
+        config.get("Twilio", "twilio_num"),
+        config.get("Twilio", "twilio_account"),
+        config.get("Twilio", "twilio_token"),
+    )
     for person in getpeople(group, current_season()):
-        if config.get('Predictions', 'mode') == 'dev' and \
-           person.name != config.get('Testing', 'testing_name'):
+        if config.get("Predictions", "mode") == "dev" and person.name != config.get(
+            "Testing", "testing_name"
+        ):
             continue
         sms.send(person.phonenumber, custom_msg(msg, person))
     del sms
@@ -272,87 +299,130 @@ def sms_message(group, msg):
 
 def email_message(group, subject, msg):
     """Craft a note to be emailed to everyone. Some smart substitutions can occur such as:
-       %{name}     = name from DB
-       %{name_url} = name from DB urllib.quote'd
-       %{nickname} = nickname from DB
+    %{name}     = name from DB
+    %{name_url} = name from DB urllib.quote'd
+    %{nickname} = nickname from DB
     """
     for person in getpeople(group, current_season()):
-        if config.get('Predictions', 'mode') == 'dev' and \
-           person.name != config.get('Testing', 'testing_name'):
+        if config.get("Predictions", "mode") == "dev" and person.name != config.get(
+            "Testing", "testing_name"
+        ):
             continue
 
-        me = config.get('Predictions', 'EMAILADDR')
-        toaddr = person.email.split(',')
+        me = config.get("Predictions", "EMAILADDR")
+        toaddr = person.email.split(",")
 
         mailmsg = MIMEText(utf8(custom_msg(msg, person)))
-        mailmsg['Subject'] = utf8(custom_msg(subject, person))
-        mailmsg['From'] = me
-        mailmsg['To'] = person.email
+        mailmsg["Subject"] = utf8(custom_msg(subject, person))
+        mailmsg["From"] = me
+        mailmsg["To"] = person.email
 
         s = smtplib.SMTP()
-        s.connect('localhost', 25)
+        s.connect("localhost", 25)
         s.sendmail(me, toaddr, mailmsg.as_string())
         s.quit()
 
 
 def sms_reminder(group):
     now = datetime.now()
-    midnight_tomorrow = datetime(*[ int(x) for x in
-                                    (now + timedelta(hours=24)).strftime('%Y %m %d 23 59').split()])
+    midnight_tomorrow = datetime(
+        *[
+            int(x)
+            for x in (now + timedelta(hours=24)).strftime("%Y %m %d 23 59").split()
+        ]
+    )
 
     # Going to bug people differently based on the time of the day prior to the gameday.
     # i.e start SMS'ing people at noon, harassing by 3pm and full out barrage by 5pm
-    nags = [ (20, ("Did I interupt dinner? Well, get to it!",
-                   "Should I text you earlier next week?",
-                   "Wow. I'm speechless... cause I'm dying.",
-                   "It's not movie time, it's predictions time!",
-                   "You make me sad.")),
-             (18, ("We need it, we need it!",
-                   "Waiting until dinner time?",
-                   "Coach called.. he's waiting too.",
-                   "You've had enough time.")),
-             (17, ("Wow! Is it really 5pm.",
-                   "Get up and get to your computer.",
-                   "You know some people like to see predictions early.",
-                   "How did the day get this late?")),
-             (15, ("Seriously, people are waiting on you.",
-                   "I was being nice.",
-                   "Coach called.. he's waiting too.",
-                   "Lets think football.",
-                   "What could be more important than predictions?")),
-             (12, ("Time to read your email.",
-                   "Good morning.",
-                   "Hello there.",
-                   "It's me again.",
-                   "Its that time of the week.",
-                   "I love football, how about you?")),
-             ]
-    message = ''
+    nags = [
+        (
+            20,
+            (
+                "Did I interupt dinner? Well, get to it!",
+                "Should I text you earlier next week?",
+                "Wow. I'm speechless... cause I'm dying.",
+                "It's not movie time, it's predictions time!",
+                "You make me sad.",
+            ),
+        ),
+        (
+            18,
+            (
+                "We need it, we need it!",
+                "Waiting until dinner time?",
+                "Coach called.. he's waiting too.",
+                "You've had enough time.",
+            ),
+        ),
+        (
+            17,
+            (
+                "Wow! Is it really 5pm.",
+                "Get up and get to your computer.",
+                "You know some people like to see predictions early.",
+                "How did the day get this late?",
+            ),
+        ),
+        (
+            15,
+            (
+                "Seriously, people are waiting on you.",
+                "I was being nice.",
+                "Coach called.. he's waiting too.",
+                "Lets think football.",
+                "What could be more important than predictions?",
+            ),
+        ),
+        (
+            12,
+            (
+                "Time to read your email.",
+                "Good morning.",
+                "Hello there.",
+                "It's me again.",
+                "Its that time of the week.",
+                "I love football, how about you?",
+            ),
+        ),
+    ]
+    message = ""
     for H, msgs in nags:
         if now.hour >= H:
             message = random.choice(msgs)
             break
 
-    if message and config.has_section('Twilio'):
-        sms = SMS(config.get('Twilio', 'twilio_num'),
-                  config.get('Twilio', 'twilio_account'),
-                  config.get('Twilio', 'twilio_token'))
-        for game in Games.query.filter(and_(Games.gametime < midnight_tomorrow, Games.gametime > now)).all():
+    if message and config.has_section("Twilio"):
+        sms = SMS(
+            config.get("Twilio", "twilio_num"),
+            config.get("Twilio", "twilio_account"),
+            config.get("Twilio", "twilio_token"),
+        )
+        for game in Games.query.filter(
+            and_(Games.gametime < midnight_tomorrow, Games.gametime > now)
+        ).all():
             canceled = game.hscore == 0 and game.ascore == 0
             if canceled:
                 continue
 
             undecided = getundecided(group, game)
 
-            GAME_URL = 'http://%s/%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), group,
-                                                   quote(game.hometeam), quote(game.awayteam))
+            GAME_URL = "http://%s/%s/%s_vs_%s/" % (
+                config.get("Predictions", "HTTPHOST"),
+                group,
+                quote(game.hometeam),
+                quote(game.awayteam),
+            )
 
             for person in undecided:
-                if config.get('Predictions', 'mode') == 'dev' and \
-                   person.name != config.get('Testing', 'testing_name'):
+                if config.get(
+                    "Predictions", "mode"
+                ) == "dev" and person.name != config.get("Testing", "testing_name"):
                     continue
 
-                sms.send(person.phonenumber, '%s %s%s/' % (message, GAME_URL, quote(person.name)) )
+                sms.send(
+                    person.phonenumber,
+                    "%s %s%s/" % (message, GAME_URL, quote(person.name)),
+                )
         del sms
 
 
@@ -363,8 +433,15 @@ def email_reminder(group):
     """
     try:
         now = datetime.now()
-        midnight_tomorrow = datetime(*[ int(x) for x in (now + timedelta(hours=24)).strftime('%Y %m %d 23 59').split()])
-        for game in Games.query.filter(and_(Games.gametime < midnight_tomorrow, Games.gametime > now)).all():
+        midnight_tomorrow = datetime(
+            *[
+                int(x)
+                for x in (now + timedelta(hours=24)).strftime("%Y %m %d 23 59").split()
+            ]
+        )
+        for game in Games.query.filter(
+            and_(Games.gametime < midnight_tomorrow, Games.gametime > now)
+        ).all():
 
             canceled = game.hscore == 0 and game.ascore == 0
             if canceled:
@@ -372,14 +449,19 @@ def email_reminder(group):
 
             undecided = getundecided(group, game)
 
-            GAME_URL = 'http://%s/%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'), group,
-                                                   quote(game.hometeam), quote(game.awayteam))
+            GAME_URL = "http://%s/%s/%s_vs_%s/" % (
+                config.get("Predictions", "HTTPHOST"),
+                group,
+                quote(game.hometeam),
+                quote(game.awayteam),
+            )
 
             if undecided:
                 for pdt in getpredictions(group, game):
                     person = pdt.person
-                    if config.get('Predictions', 'mode') == 'dev' and \
-                       person.name != config.get('Testing', 'testing_name'):
+                    if config.get(
+                        "Predictions", "mode"
+                    ) == "dev" and person.name != config.get("Testing", "testing_name"):
                         continue
 
                     # TODO: Use dedent
@@ -398,18 +480,29 @@ Please go nag:
 
 Thank you,
 The Gamemaster.
-""" % (game.hometeam, pdt.home, game.awayteam, pdt.away,
-       GAME_URL, quote(person.name), game.season,
-       ', '.join([ p.name for p in undecided ]))
+""" % (
+                        game.hometeam,
+                        pdt.home,
+                        game.awayteam,
+                        pdt.away,
+                        GAME_URL,
+                        quote(person.name),
+                        game.season,
+                        ", ".join([p.name for p in undecided]),
+                    )
 
-                    me = config.get('Predictions', 'EMAILADDR')
-                    toaddr = person.email.split(',')
+                    me = config.get("Predictions", "EMAILADDR")
+                    toaddr = person.email.split(",")
 
                     msg = MIMEText(body)
-                    msg['Subject'] = 'Thank you for your prediction on the %s vs. %s Game?' % \
-                                     (game.hometeam, game.awayteam)
-                    msg['From'] = me
-                    msg['To'] = person.email
+                    msg[
+                        "Subject"
+                    ] = "Thank you for your prediction on the %s vs. %s Game?" % (
+                        game.hometeam,
+                        game.awayteam,
+                    )
+                    msg["From"] = me
+                    msg["To"] = person.email
 
                     s = smtplib.SMTP()
                     s.connect()
@@ -417,8 +510,9 @@ The Gamemaster.
                     s.quit()
 
             for person in undecided:
-                if config.get('Predictions', 'mode') == 'dev' and \
-                   person.name != config.get('Testing', 'testing_name'):
+                if config.get(
+                    "Predictions", "mode"
+                ) == "dev" and person.name != config.get("Testing", "testing_name"):
                     continue
 
                 body = """
@@ -432,17 +526,25 @@ http://www.espn.com/college-football/team/fpi?id=194&year=%s
 
 And good luck,
 The Gamemaster.'
-""" % (game.hometeam, game.awayteam, GAME_URL, quote(person.name), game.season)
+""" % (
+                    game.hometeam,
+                    game.awayteam,
+                    GAME_URL,
+                    quote(person.name),
+                    game.season,
+                )
 
                 # TODO: remove duplicate code
-                me = config.get('Predictions', 'EMAILADDR')
-                toaddr = person.email.split(',')
+                me = config.get("Predictions", "EMAILADDR")
+                toaddr = person.email.split(",")
 
                 msg = MIMEText(body)
-                msg['Subject'] = 'What is your Prediction on the %s vs. %s Game?' % \
-                                 (game.hometeam, game.awayteam)
-                msg['From'] = me
-                msg['To'] = person.email
+                msg["Subject"] = "What is your Prediction on the %s vs. %s Game?" % (
+                    game.hometeam,
+                    game.awayteam,
+                )
+                msg["From"] = me
+                msg["To"] = person.email
 
                 s = smtplib.SMTP()
                 s.connect()
@@ -450,7 +552,7 @@ The Gamemaster.'
                 s.quit()
 
     except (Exception) as e:
-        print('Sorry. Something happened while trying to email: %s' % (str(e)))
+        print("Sorry. Something happened while trying to email: %s" % (str(e)))
 
 
 def email_predictions(group, home_vs_away):
@@ -462,54 +564,83 @@ def email_predictions(group, home_vs_away):
         game = getgamebyversus(home_vs_away, current_season())
         predictions = getpredictions(group, game)
 
-        body = 'Predictions are in!\n\n%s - %s\n' % (game.hometeam, game.awayteam)
-        body += '\n'.join([ '%-2d - %-2d by %s' % \
-                            (p.home, p.away, p.person.name) for p in predictions ])
-        body += '\n\nGood luck, folks.'
+        body = "Predictions are in!\n\n%s - %s\n" % (game.hometeam, game.awayteam)
+        body += "\n".join(
+            ["%-2d - %-2d by %s" % (p.home, p.away, p.person.name) for p in predictions]
+        )
+        body += "\n\nGood luck, folks."
 
         msg = MIMEText(body)
-        msg['Subject'] = 'Predictions on the %s vs. %s Game' % (game.hometeam, game.awayteam)
-        msg['From'] = config.get('Predictions', 'EMAILADDR')
-        msg['To']   = config.get('Predictions', 'EMAILADDR')
-        if config.get('Predictions', 'mode') == 'dev':
-            bcc = [config.get('Testing', 'testing_email')]
+        msg["Subject"] = "Predictions on the %s vs. %s Game" % (
+            game.hometeam,
+            game.awayteam,
+        )
+        msg["From"] = config.get("Predictions", "EMAILADDR")
+        msg["To"] = config.get("Predictions", "EMAILADDR")
+        if config.get("Predictions", "mode") == "dev":
+            bcc = [config.get("Testing", "testing_email")]
         else:
-            bcc = (','.join([ pdt.person.email for pdt in predictions ])).split(',')
+            bcc = (",".join([pdt.person.email for pdt in predictions])).split(",")
 
         s = smtplib.SMTP()
         s.connect()
-        s.sendmail(config.get('Predictions', 'EMAILADDR'), bcc, msg.as_string())
+        s.sendmail(config.get("Predictions", "EMAILADDR"), bcc, msg.as_string())
         s.quit()
 
     except (Exception) as e:
-        print('Sorry. Something happened while trying to email: %s' % (str(e)))
+        print("Sorry. Something happened while trying to email: %s" % (str(e)))
 
 
 def sms_gameresults(group, home_vs_away, season, overriding_msg=""):
     try:
         game = game_info(group, home_vs_away, season)
 
-        happy_msg = ["High Five", "Niceeee", "Raise the roof", "Hot Dog!", "Kazaam!", "Great Work",
-                     "You're awesome", "How can I be like you?", "Help me next time",
-                     "Its like you're psychic", "Ain't life grand?", "W00t!"]
-        loser_msg = ["Sorry", "Try Again", "Need a friend to talk to?",
-                     "Ah, shucks!", "Darn it!", "Maybe Next time?", "Don't quit on me, though",
-                     "Try asking Jon next time", "Ice Cream cheers me up",
-                     "Least you have your health", "Try a Popsicle. Will make you happy",
-                     "We can't all be winners", "Some days you win, today you lose", "Beep beep"]
+        happy_msg = [
+            "High Five",
+            "Niceeee",
+            "Raise the roof",
+            "Hot Dog!",
+            "Kazaam!",
+            "Great Work",
+            "You're awesome",
+            "How can I be like you?",
+            "Help me next time",
+            "Its like you're psychic",
+            "Ain't life grand?",
+            "W00t!",
+        ]
+        loser_msg = [
+            "Sorry",
+            "Try Again",
+            "Need a friend to talk to?",
+            "Ah, shucks!",
+            "Darn it!",
+            "Maybe Next time?",
+            "Don't quit on me, though",
+            "Try asking Jon next time",
+            "Ice Cream cheers me up",
+            "Least you have your health",
+            "Try a Popsicle. Will make you happy",
+            "We can't all be winners",
+            "Some days you win, today you lose",
+            "Beep beep",
+        ]
 
         winner = game.people[0]
-        coffee_winner = [ p for p in game.people if p.betting ][0]
+        coffee_winner = [p for p in game.people if p.betting][0]
 
-        if not config.has_section('Twilio'):
+        if not config.has_section("Twilio"):
             return
-        sms = SMS(config.get('Twilio', 'twilio_num'),
-                  config.get('Twilio', 'twilio_account'),
-                  config.get('Twilio', 'twilio_token'))
+        sms = SMS(
+            config.get("Twilio", "twilio_num"),
+            config.get("Twilio", "twilio_account"),
+            config.get("Twilio", "twilio_token"),
+        )
 
         for person in game.people:
-            if config.get('Predictions', 'mode') == 'dev' and \
-               person.name != config.get('Testing', 'testing_name'):
+            if config.get("Predictions", "mode") == "dev" and person.name != config.get(
+                "Testing", "testing_name"
+            ):
                 continue
 
             if overriding_msg:
@@ -521,34 +652,62 @@ def sms_gameresults(group, home_vs_away, season, overriding_msg=""):
 
                 # Is that person you?
                 if person == winner:
-                    text = 'Collect your coffee! You WIN by being off by %d! %s' % \
-                        (person.delta, random.choice(happy_msg))
+                    text = "Collect your coffee! You WIN by being off by %d! %s" % (
+                        person.delta,
+                        random.choice(happy_msg),
+                    )
                 else:
                     if person.betting:
-                        text = '%s was off by %d, so you owe coffee. You were off by %d. %s' % \
-                            (winner.name, winner.delta, person.delta, random.choice(loser_msg))
+                        text = "%s was off by %d, so you owe coffee. You were off by %d. %s" % (
+                            winner.name,
+                            winner.delta,
+                            person.delta,
+                            random.choice(loser_msg),
+                        )
                     else:
-                        text = '%s wins being %d off. You were %d off. %s' % \
-                            (winner.name, winner.delta, person.delta, random.choice(loser_msg))
+                        text = "%s wins being %d off. You were %d off. %s" % (
+                            winner.name,
+                            winner.delta,
+                            person.delta,
+                            random.choice(loser_msg),
+                        )
             # Or two winners
             else:
                 # Funsie won it
 
                 # Is that person you?
                 if person == winner:
-                    text = 'Congrats! You win by being off by %d! %s' % \
-                        (person.delta, random.choice(happy_msg))
+                    text = "Congrats! You win by being off by %d! %s" % (
+                        person.delta,
+                        random.choice(happy_msg),
+                    )
                 elif person == coffee_winner:
-                    text = '%s wins by being %d off but you WIN coffee being %d off. %s' % \
-                        (winner.name, winner.delta, person.delta, random.choice(happy_msg))
+                    text = (
+                        "%s wins by being %d off but you WIN coffee being %d off. %s"
+                        % (
+                            winner.name,
+                            winner.delta,
+                            person.delta,
+                            random.choice(happy_msg),
+                        )
+                    )
                 else:
                     if person.betting:
-                        text = '%s wins by being %d off and you owe %s coffee who was off %d. You\'re off by %d. %s.' % \
-                            (winner.name, winner.delta, coffee_winner.name, coffee_winner.delta,
-                             person.delta, random.choice(loser_msg))
+                        text = "%s wins by being %d off and you owe %s coffee who was off %d. You're off by %d. %s." % (
+                            winner.name,
+                            winner.delta,
+                            coffee_winner.name,
+                            coffee_winner.delta,
+                            person.delta,
+                            random.choice(loser_msg),
+                        )
                     else:
-                        text = '%s wins by being %d off and you were %d off. %s' % \
-                            (winner.name, winner.delta, person.delta, random.choice(loser_msg))
+                        text = "%s wins by being %d off and you were %d off. %s" % (
+                            winner.name,
+                            winner.delta,
+                            person.delta,
+                            random.choice(loser_msg),
+                        )
 
             # text += ' http://%s/%s/%s/' % (config.get('Predictions', 'HTTPHOST'),
             #                                group, home_vs_away)
@@ -557,36 +716,52 @@ def sms_gameresults(group, home_vs_away, season, overriding_msg=""):
 
     except (Exception) as e:
         raise e
-        #print 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
+        # print 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
 
 
 def print_sms_messages():
-    sms = SMS(config.get('Twilio', 'twilio_num'),
-              config.get('Twilio', 'twilio_account'),
-              config.get('Twilio', 'twilio_token'))
-    num2name = dict([ ('+1%s' % p.phonenumber, p.name) for p in Person.query.all() ])
+    sms = SMS(
+        config.get("Twilio", "twilio_num"),
+        config.get("Twilio", "twilio_account"),
+        config.get("Twilio", "twilio_token"),
+    )
+    num2name = dict([("+1%s" % p.phonenumber, p.name) for p in Person.query.all()])
     stat_n, stat_tot = 0, 0.0
     for m in sms.get_messages():
-        date_created = m.date_created  # datetime.strptime(m.date_created, '%a, %d %b %Y %H:%M:%S +%f')
-        date_sent    = m.date_sent  # datetime.strptime(m.date_sent,    '%a, %d %b %Y %H:%M:%S +%f')
+        date_created = (
+            m.date_created
+        )  # datetime.strptime(m.date_created, '%a, %d %b %Y %H:%M:%S +%f')
+        date_sent = (
+            m.date_sent
+        )  # datetime.strptime(m.date_sent,    '%a, %d %b %Y %H:%M:%S +%f')
         ts = (date_sent - date_created).total_seconds()
         # Stats
-        stat_n   += 1
+        stat_n += 1
         stat_tot += ts
 
-        print('%s sent to %s (%s) and completed %fs later:\n  "%s"' % \
-            (date_created.strftime('%F %T'), num2name.get(m.to, 'Unknown'), m.to, ts, m.body))
+        print(
+            '%s sent to %s (%s) and completed %fs later:\n  "%s"'
+            % (
+                date_created.strftime("%F %T"),
+                num2name.get(m.to, "Unknown"),
+                m.to,
+                ts,
+                m.body,
+            )
+        )
 
-    print('%d messages sent for an average of %fs to complete the message.' % \
-        (stat_n, stat_tot / stat_n))
+    print(
+        "%d messages sent for an average of %fs to complete the message."
+        % (stat_n, stat_tot / stat_n)
+    )
 
 
 def update_betting_games(group, season):
-    """ Ensure that the next game is queued for betting """
+    """Ensure that the next game is queued for betting"""
     groupplay = getgroup(group, season)
     betting = Betting.query.filter(Betting.group == groupplay).all()
     betting.sort(key=lambda g: g.game.gametime)
-    games = [ bet.game for bet in betting ]
+    games = [bet.game for bet in betting]
     for game in games:
         if game.hscore > -1:
             continue
@@ -618,10 +793,10 @@ class ProfileURL:
         myform = web.form.Form(
             web.form.Textbox("Nickname", value=person.nickname),
             web.form.File("Mugshot"),
-            web.form.Password('password', value=""),
+            web.form.Password("password", value=""),
         )
 
-        msg = ''
+        msg = ""
         return render.profile(person, myform, msg)
 
     def POST(self, group, name):
@@ -629,12 +804,15 @@ class ProfileURL:
         person = getperson(group, name, i.season)
 
         # Won't be doing much if the password is incorrect
-        if not (person.password == i.password or i.password == config.get('Predictions', 'mpass')):
-            msg = 'Wrong password. Try again'
+        if not (
+            person.password == i.password
+            or i.password == config.get("Predictions", "mpass")
+        ):
+            msg = "Wrong password. Try again"
             myform = web.form.Form(
                 web.form.Textbox("Nickname", value=person.nickname),
                 web.form.File("Mugshot"),
-                web.form.Password('password', value=""),
+                web.form.Password("password", value=""),
             )
             return render.profile(person, myform, msg)
 
@@ -645,22 +823,22 @@ class ProfileURL:
 
         # Now lets take a look at the picture
         if i.Mugshot.filename:
-            tmpfile = tempfile.mktemp(prefix='predictions_')
-            fh = open(tmpfile, 'w')
+            tmpfile = tempfile.mktemp(prefix="predictions_")
+            fh = open(tmpfile, "w")
             fh.write(i.Mugshot.file.read())
             fh.close()
 
             if is_valid_picture(tmpfile):
-                dst = os.path.join(config.get('Predictions', 'BASEDIR'), person.mugshot)
+                dst = os.path.join(config.get("Predictions", "BASEDIR"), person.mugshot)
                 shutil.copy(tmpfile, dst)
                 # And now need to resize it
-                os.system('convert %s -resize 300x300 %s' % (dst, dst))
+                os.system("convert %s -resize 300x300 %s" % (dst, dst))
             else:
-                msg = 'Your new profile pic is not actually a pic. Try again.'
+                msg = "Your new profile pic is not actually a pic. Try again."
                 myform = web.form.Form(
                     web.form.Textbox("Nickname", value=person.nickname),
                     web.form.File("Mugshot"),
-                    web.form.Password('password', value=""),
+                    web.form.Password("password", value=""),
                 )
                 # clean up first, then redirect them
                 os.unlink(tmpfile)
@@ -669,16 +847,20 @@ class ProfileURL:
             # clean up
             os.unlink(tmpfile)
 
-        return web.seeother('http://%s/%s/mugs' % (config.get('Predictions', 'HTTPHOST'), group))
+        return web.seeother(
+            "http://%s/%s/mugs" % (config.get("Predictions", "HTTPHOST"), group)
+        )
 
 
 class EmailURL:
     def POST(self, group):
         i = web.input(season=current_season())
-        if i.password == config.get('Predictions', 'mpass'):
+        if i.password == config.get("Predictions", "mpass"):
             email_message(group, i.subject, i.email)
 
-        return web.seeother('http://%s/%s/admin' % (config.get('Predictions', 'HTTPHOST'), group))
+        return web.seeother(
+            "http://%s/%s/admin" % (config.get("Predictions", "HTTPHOST"), group)
+        )
 
 
 class AdminURL:
@@ -688,13 +870,13 @@ class AdminURL:
         groupplay = getgroup(group, i.season)
         betting = Betting.query.filter(Betting.group == groupplay).all()
         betting.sort(key=lambda g: g.game.gametime)
-        games = [ bet.game for bet in betting ]
+        games = [bet.game for bet in betting]
         for i in range(len(games)):
             game = games[i]
             # first, it is over?
-            game.done = (game.hscore > -1)
+            game.done = game.hscore > -1
             # Now help out the templating engine
-            game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
+            game.ahref = "%s_vs_%s" % (game.hometeam, game.awayteam)
             games[i] = game
 
         myform = web.form.Form(
@@ -702,10 +884,10 @@ class AdminURL:
             web.form.Textbox("Away", value=""),
             web.form.Textbox("Datetime", value=""),
             web.form.Textbox("season", value=current_season()),
-            web.form.Password('password', value=""),
+            web.form.Password("password", value=""),
         )
 
-        msg = ''
+        msg = ""
         return render.admin(group, games, myform, msg)
 
     def POST(self, group):
@@ -714,34 +896,38 @@ class AdminURL:
             # Could be creating a new season
             groupplay = getgroup(group, i.season)
         except Exception:
-            if i.password == config.get('Predictions', 'mpass'):
+            if i.password == config.get("Predictions", "mpass"):
                 newseason(group, i.season)
                 groupplay = getgroup(group, i.season)
             else:
-                return web.seeother('http://%s/%s/admin' % \
-                                    (config.get('Predictions', 'HTTPHOST'), group))
+                return web.seeother(
+                    "http://%s/%s/admin"
+                    % (config.get("Predictions", "HTTPHOST"), group)
+                )
 
         gametime = dateparse(i.Datetime)
         if not gametime:
-            msg = 'Sorry. Could not parse the date of "%s". Try a format of: YYYY-MM-DD HH:MM (%s)' % \
-                  (str(i.Datetime), str(gametime))
+            msg = (
+                'Sorry. Could not parse the date of "%s". Try a format of: YYYY-MM-DD HH:MM (%s)'
+                % (str(i.Datetime), str(gametime))
+            )
             betting = Betting.query.filter(Betting.group == groupplay).all()
             betting.sort(key=lambda g: g.game.gametime)
-            games = [ bet.game for bet in betting ]
+            games = [bet.game for bet in betting]
             # games = Games.query.filter(Games.season==i.season).order_by(Games.gametime).all()
             for n in range(len(games)):
                 game = games[n]
                 # first, it is over?
-                game.done = (game.hscore > -1)
+                game.done = game.hscore > -1
                 # Now help out the templating engine
-                game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
+                game.ahref = "%s_vs_%s" % (game.hometeam, game.awayteam)
                 games[n] = game
             myform = web.form.Form(
                 web.form.Textbox("Home", value=i.Home),
                 web.form.Textbox("Away", value=i.Away),
                 web.form.Textbox("Datetime", value=i.Datetime),
                 web.form.Textbox("season", value=current_season()),
-                web.form.Password('password', value=""),
+                web.form.Password("password", value=""),
             )
             return render.admin(group, games, myform, msg)
 
@@ -749,22 +935,36 @@ class AdminURL:
         #     (home, away, gametime, input.auth)
         # FIXME: Should be checking the group's admin password here and
         #        perhaps OR'ing it with the 'mpass'
-        if i.password == config.get('Predictions', 'mpass'):
-            nextgame = Games(hometeam=i.Home, awayteam=i.Away, gametime=gametime,
-                             season=i.season, hscore=-2, ascore=-1)
-            betting  = Betting(game=nextgame, group=groupplay)
+        if i.password == config.get("Predictions", "mpass"):
+            nextgame = Games(
+                hometeam=i.Home,
+                awayteam=i.Away,
+                gametime=gametime,
+                season=i.season,
+                hscore=-2,
+                ascore=-1,
+            )
+            betting = Betting(game=nextgame, group=groupplay)
             session.commit()
 
             update_betting_games(group, i.season)
 
-            return web.seeother('http://%s/%s/%s_vs_%s/' % (config.get('Predictions', 'HTTPHOST'),
-                                                            group, quote(i.Home), quote(i.Away)))
+            return web.seeother(
+                "http://%s/%s/%s_vs_%s/"
+                % (
+                    config.get("Predictions", "HTTPHOST"),
+                    group,
+                    quote(i.Home),
+                    quote(i.Away),
+                )
+            )
         else:
-            return 'Sorry, can not help you. That is not the right password.'
+            return "Sorry, can not help you. That is not the right password."
 
 
 class GamesURL:
-    """ Main page to show all of the games and season stats """
+    """Main page to show all of the games and season stats"""
+
     def GET(self, group):
         i = web.input(season=current_season())
         selected_season = i.season
@@ -776,12 +976,12 @@ class GamesURL:
         groupplay = getgroup(group, i.season)
         betting = Betting.query.filter(Betting.group == groupplay).all()
         betting.sort(key=lambda g: g.game.gametime)
-        games = [ bet.game for bet in betting if bet.game.hscore > -2 ]
+        games = [bet.game for bet in betting if bet.game.hscore > -2]
         # 2. People
         people = getpeople(group, i.season)
         # people = [ m.person for m in Membership.query.filter(Membership.group==groupplay).all() ]
-        names = [ p.name for p in people ]
-        pindex = dict([ (person.name, idx) for idx, person in enumerate(people) ])
+        names = [p.name for p in people]
+        pindex = dict([(person.name, idx) for idx, person in enumerate(people)])
         # some stats initialization
         for name, i in pindex.items():
             person = people[i]
@@ -791,12 +991,15 @@ class GamesURL:
             people[i] = person
 
         for i in range(len(games)):
-            game = game_info(group, '%s_vs_%s' % \
-                             (games[i].hometeam, games[i].awayteam), selected_season)
-            
+            game = game_info(
+                group,
+                "%s_vs_%s" % (games[i].hometeam, games[i].awayteam),
+                selected_season,
+            )
+
             # Helping out the templating engine
-            game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
-            if game.hometeam == 'OSU':
+            game.ahref = "%s_vs_%s" % (game.hometeam, game.awayteam)
+            if game.hometeam == "OSU":
                 game.opponent = game.awayteam
             else:
                 game.opponent = game.hometeam
@@ -815,34 +1018,45 @@ class GamesURL:
                 # person
                 people[pindex[p.name]] = person
 
-            game.mugshots = [ game.people[0].mugshot ]
+            game.mugshots = [game.people[0].mugshot]
             game.winningnames = game.people[0].name
 
             # Ah, but what about the coffee betters and not the funsies?
-            game.coffee_winningnames = ' & '.join([ p.name for p in game.people if p.winningcoffee ])
+            game.coffee_winningnames = " & ".join(
+                [p.name for p in game.people if p.winningcoffee]
+            )
 
         people.sort(cmp=lambda a, b: cmp(a.tot_delta, b.tot_delta))
 
         # Barchart for the season
-        barchart_url = "http://chart.apis.google.com/chart" \
-                       "?chxl=0:|%s" \
-                       "&chxt=y,x" \
-                       "&chxr=1,0,%d" \
-                       "&chds=0,%d" \
-                       "&chbh=a,5" \
-                       "&chs=300x225" \
-                       "&cht=bhg" \
-                       "&chco=A2C180" \
-                       "&chd=t:%s" \
-                       "&chtt=Total+Points+Off+in+All+Games" \
-                       "&chts=EE2525,11.5"
+        barchart_url = (
+            "http://chart.apis.google.com/chart"
+            "?chxl=0:|%s"
+            "&chxt=y,x"
+            "&chxr=1,0,%d"
+            "&chds=0,%d"
+            "&chbh=a,5"
+            "&chs=300x225"
+            "&cht=bhg"
+            "&chco=A2C180"
+            "&chd=t:%s"
+            "&chtt=Total+Points+Off+in+All+Games"
+            "&chts=EE2525,11.5"
+        )
 
-        charts.append(barchart_url % ("|".join([ p.name.replace(' ', '+') for p in reversed(people)]),
-                                      people[-1].tot_delta,
-                                      people[-1].tot_delta,
-                                      ','.join([ ('%d' % p.tot_delta) for p in people ])))
+        charts.append(
+            barchart_url
+            % (
+                "|".join([p.name.replace(" ", "+") for p in reversed(people)]),
+                people[-1].tot_delta,
+                people[-1].tot_delta,
+                ",".join([("%d" % p.tot_delta) for p in people]),
+            )
+        )
 
-        return render.games(games, people, names, pindex, charts, selected_season, get_seasons())
+        return render.games(
+            games, people, names, pindex, charts, selected_season, get_seasons()
+        )
 
 
 class PredictionsURL:
@@ -865,12 +1079,14 @@ class PredictionsURL:
 
             return render.predictions(group, game)
         except (Exception) as e:
-            print('print_exc():')
+            print("print_exc():")
             traceback.print_exc(file=sys.stdout)
-            return 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
+            return "Sorry. You probably are looking for another game?\nPsst: %s" % (
+                str(e)
+            )
 
     def POST(self, group, home_vs_away):
-        """ Post in-game comments with score updates by our predictors """
+        """Post in-game comments with score updates by our predictors"""
         try:
             i = web.input(season=current_season())
             groupplay = getgroup(group, i.season)
@@ -889,43 +1105,53 @@ class PredictionsURL:
 
             # Insert InGameScores commentary by our fellow player
             if not game.done:
-                InGameScores(home=homescore, away=awayscore,
-                             comment=comment, person=person,
-                             game=game, group=groupplay)
+                InGameScores(
+                    home=homescore,
+                    away=awayscore,
+                    comment=comment,
+                    person=person,
+                    game=game,
+                    group=groupplay,
+                )
                 session.commit()
 
         except (Exception) as e:
-            return 'DEBUG: Got an error: %s' % (str(e))
+            return "DEBUG: Got an error: %s" % (str(e))
             pass
-        return web.seeother('http://%s/%s/%s/' % \
-                            (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
+        return web.seeother(
+            "http://%s/%s/%s/"
+            % (config.get("Predictions", "HTTPHOST"), group, home_vs_away)
+        )
 
 
 class FinalscoreURL:
     def GET(self, group, home_vs_away):
         try:
             i = web.input(season=current_season())
-            hometeam, awayteam = home_vs_away.split('_vs_')
+            hometeam, awayteam = home_vs_away.split("_vs_")
 
             myform = web.form.Form(
                 web.form.Textbox(hometeam, value=""),
                 web.form.Textbox(awayteam, value=""),
-                web.form.Textbox('commentary', value=""),
-                web.form.Password('password', value=""),
+                web.form.Textbox("commentary", value=""),
+                web.form.Password("password", value=""),
             )
 
-            return render.finalscore(hometeam, awayteam, myform, msg='')
+            return render.finalscore(hometeam, awayteam, myform, msg="")
 
         except (Exception) as e:
-            return 'Sorry. You\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
+            return (
+                "Sorry. You're going to have to ssh into the machine to post the score.\nPsst: %s"
+                % (str(e))
+            )
 
     def POST(self, group, home_vs_away):
         try:
             i = web.input(season=current_season())
-            hometeam, awayteam = home_vs_away.split('_vs_')
+            hometeam, awayteam = home_vs_away.split("_vs_")
             game = getgamebyversus(home_vs_away, i.season)
 
-            if i.password == config.get('Predictions', 'mpass'):
+            if i.password == config.get("Predictions", "mpass"):
                 game.hscore = int(getattr(i, hometeam))
                 game.ascore = int(getattr(i, awayteam))
                 game.canceled = game.hscore == 0 and game.ascore == 0
@@ -937,109 +1163,138 @@ class FinalscoreURL:
 
                 # Send out a SMS message about the winners
                 if game.canceled:
-                    sms_gameresults(group, home_vs_away, i.season, overriding_msg=i.commentary)
+                    sms_gameresults(
+                        group, home_vs_away, i.season, overriding_msg=i.commentary
+                    )
                 else:
                     sms_gameresults(group, home_vs_away, i.season)
 
-                return web.seeother('http://%s/%s/%s/' % \
-                                    (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
+                return web.seeother(
+                    "http://%s/%s/%s/"
+                    % (config.get("Predictions", "HTTPHOST"), group, home_vs_away)
+                )
 
             else:
                 myform = web.form.Form(
                     web.form.Textbox(hometeam, value=getattr(i, hometeam)),
                     web.form.Textbox(awayteam, value=getattr(i, awayteam)),
-                    web.form.Textbox('commentary', value=getattr(i, commentary)),
-                    web.form.Password('password', value=""),
+                    web.form.Textbox("commentary", value=getattr(i, commentary)),
+                    web.form.Password("password", value=""),
                 )
 
-                return render.finalscore(hometeam, awayteam, myform,
-                                         msg='Wrong password. Try again.')
+                return render.finalscore(
+                    hometeam, awayteam, myform, msg="Wrong password. Try again."
+                )
 
         except (Exception) as e:
-            return 'Seriously, you\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
+            return (
+                "Seriously, you're going to have to ssh into the machine to post the score.\nPsst: %s"
+                % (str(e))
+            )
 
 
 class PredictURL:
     def GET(self, group, home_vs_away, name):
         try:
-            #print 'Let\'s see what %s has to say about the %s game.' % (name, game)
+            # print 'Let\'s see what %s has to say about the %s game.' % (name, game)
             i = web.input(season=current_season())
-            hometeam, awayteam = home_vs_away.split('_vs_')
+            hometeam, awayteam = home_vs_away.split("_vs_")
             game = getgamebyversus(home_vs_away, i.season)
             # p = Person.query.filter_by(name=name).one()
             groupplay = getgroup(group, i.season)
-            p = [m.person for m in Membership.query.filter(Membership.group == groupplay).all()
-                 if m.person.name == name][0]
+            p = [
+                m.person
+                for m in Membership.query.filter(Membership.group == groupplay).all()
+                if m.person.name == name
+            ][0]
 
             myform = web.form.Form(
                 web.form.Textbox(hometeam, value=""),
                 web.form.Textbox(awayteam, value=""),
-                web.form.Password('password', value=""),
+                web.form.Password("password", value=""),
             )
 
-            return render.predict(game, p, myform, msg='')
+            return render.predict(game, p, myform, msg="")
         except (Exception) as e:
-            return 'Sorry. You probably are looking for another game?\n%s' % (str(e))
+            return "Sorry. You probably are looking for another game?\n%s" % (str(e))
 
     def POST(self, group, home_vs_away, name):
         i = web.input(auth="bogus", season=current_season())
-        hometeam, awayteam = home_vs_away.split('_vs_')
+        hometeam, awayteam = home_vs_away.split("_vs_")
         game = getgamebyversus(home_vs_away, i.season)
         groupplay = getgroup(group, i.season)
-        p = [m.person for m in Membership.query.filter(Membership.group == groupplay).all()
-             if m.person.name == name][0]
+        p = [
+            m.person
+            for m in Membership.query.filter(Membership.group == groupplay).all()
+            if m.person.name == name
+        ][0]
 
         canceled = game.hscore == 0 and game.ascore == 0
         if canceled:
-            return web.seeother('http://%s/%s/%s/' % \
-                                (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
+            return web.seeother(
+                "http://%s/%s/%s/"
+                % (config.get("Predictions", "HTTPHOST"), group, home_vs_away)
+            )
 
         # first of all, you can not make predictions when the game is on
         if datetime.now() > game.gametime:
-            return web.seeother('http://%s/%s/%s/' % \
-                                (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
+            return web.seeother(
+                "http://%s/%s/%s/"
+                % (config.get("Predictions", "HTTPHOST"), group, home_vs_away)
+            )
 
         # also, you can not make a prediction once all of the predictions are in.
         undecided = getundecided(group, game)
         if not undecided:
-            return web.seeother('http://%s/%s/%s/' % \
-                                (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
+            return web.seeother(
+                "http://%s/%s/%s/"
+                % (config.get("Predictions", "HTTPHOST"), group, home_vs_away)
+            )
 
-        if p.password == i.password or i.password == config.get('Predictions', 'mpass'):
+        if p.password == i.password or i.password == config.get("Predictions", "mpass"):
             # Is there already a prediction out there for this?
-            q = Predictions.query.filter(and_(Predictions.group == groupplay,
-                                              Predictions.game == game,
-                                              Predictions.person == p))
+            q = Predictions.query.filter(
+                and_(
+                    Predictions.group == groupplay,
+                    Predictions.game == game,
+                    Predictions.person == p,
+                )
+            )
             if q.count():
                 pp = q.one()
                 pp.home = int(getattr(i, hometeam))
                 pp.away = int(getattr(i, awayteam))
             else:
-                Predictions(home=int(getattr(i, hometeam)),
-                            away=int(getattr(i, awayteam)),
-                            dt=datetime.now(),
-                            person=p,
-                            game=game,
-                            group=groupplay)
+                Predictions(
+                    home=int(getattr(i, hometeam)),
+                    away=int(getattr(i, awayteam)),
+                    dt=datetime.now(),
+                    person=p,
+                    game=game,
+                    group=groupplay,
+                )
 
             # all done here
             session.commit()
 
             # Was this the last prediction? Time to email the group?
-            showpredictions = (datetime.now() > game.gametime) or (undecided == [ p ])
+            showpredictions = (datetime.now() > game.gametime) or (undecided == [p])
             if showpredictions:
                 email_predictions(group, home_vs_away)
 
-            return web.seeother('http://%s/%s/%s/' % \
-                                (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
+            return web.seeother(
+                "http://%s/%s/%s/"
+                % (config.get("Predictions", "HTTPHOST"), group, home_vs_away)
+            )
         else:
             myform = web.form.Form(
                 web.form.Textbox(hometeam, value=getattr(i, hometeam)),
                 web.form.Textbox(awayteam, value=getattr(i, awayteam)),
-                web.form.Password('password', value=""),
+                web.form.Password("password", value=""),
             )
 
-            return render.predict(game, p, myform, msg='Wrong password. Try again.')
+            return render.predict(game, p, myform, msg="Wrong password. Try again.")
+
 
 web.webapi.internalerror = web.debugerror
 app = web.application(urls, globals(), autoreload=False)
@@ -1049,71 +1304,114 @@ application = app.wsgifunc()
 if __name__ == "__main__":
 
     import argparse
-    parser = argparse.ArgumentParser(description='Predictions Admin Utility')
-    parser.add_argument('--group', required=True, help='Which group are we operating on?')
-    parser.add_argument('--adduser', help='Create a new user', action='store_true', default=False)
+
+    parser = argparse.ArgumentParser(description="Predictions Admin Utility")
+    parser.add_argument(
+        "--group", required=True, help="Which group are we operating on?"
+    )
+    parser.add_argument(
+        "--adduser", help="Create a new user", action="store_true", default=False
+    )
     # Nudge people or send a normal message via SMS or Email
-    parser.add_argument('--nudge', '--remind', dest='reminder', action='store_true', default=False,
-                        help='Remind people to make a prediction (Pick a method)')
-    parser.add_argument('--message', dest='message',
-                        help='Send a message to the entire team via SMS or Email (Pick a method)')
-    parser.add_argument('--method', dest='method', choices=['sms', 'email'],
-                        help='Method to use when nudging contacting people')
+    parser.add_argument(
+        "--nudge",
+        "--remind",
+        dest="reminder",
+        action="store_true",
+        default=False,
+        help="Remind people to make a prediction (Pick a method)",
+    )
+    parser.add_argument(
+        "--message",
+        dest="message",
+        help="Send a message to the entire team via SMS or Email (Pick a method)",
+    )
+    parser.add_argument(
+        "--method",
+        dest="method",
+        choices=["sms", "email"],
+        help="Method to use when nudging contacting people",
+    )
     # Summation Actions
-    parser.add_argument('--email_predictions', dest='email_predictions',
-                        action='store_true', default=False,
-                        help='Send an email out with the predictions.')
-    parser.add_argument('--sms_results', dest='sms_results', action='store_true', default=False,
-                        help='Send a SMS to each member with the results of the game.')
-    parser.add_argument('--teams', dest='home_vs_away', nargs=2,
-                        help='Send a SMS to each member with the results of the game.')
+    parser.add_argument(
+        "--email_predictions",
+        dest="email_predictions",
+        action="store_true",
+        default=False,
+        help="Send an email out with the predictions.",
+    )
+    parser.add_argument(
+        "--sms_results",
+        dest="sms_results",
+        action="store_true",
+        default=False,
+        help="Send a SMS to each member with the results of the game.",
+    )
+    parser.add_argument(
+        "--teams",
+        dest="home_vs_away",
+        nargs=2,
+        help="Send a SMS to each member with the results of the game.",
+    )
     # Inquiry
-    parser.add_argument('--list-sms', dest='list_sms', action='store_true', default=False,
-                        help='Print out a summary of the last SMS messages sent.')
+    parser.add_argument(
+        "--list-sms",
+        dest="list_sms",
+        action="store_true",
+        default=False,
+        help="Print out a summary of the last SMS messages sent.",
+    )
     # Debug
-    parser.add_argument('--debug', dest='debug', action='store_true', default=False,
-                        help='Debugging the arguments / actions.')
+    parser.add_argument(
+        "--debug",
+        dest="debug",
+        action="store_true",
+        default=False,
+        help="Debugging the arguments / actions.",
+    )
     args = parser.parse_args()
     # parser.parse_args('--group bucknuts'.split())
 
     if args.adduser:
         print("Adding a new user. I will prompt you for the necessary intel.")
-        name        = input("  Full Name: ")
-        nickname    = input("  Nickame: ")
-        email       = input("  Email: ")
+        name = input("  Full Name: ")
+        nickname = input("  Nickame: ")
+        email = input("  Email: ")
         phonenumber = input("  Phone#: ")
-        password    = input("  Password: ")
-        betting     = input("  Betting?: (Y/n) ")
+        password = input("  Password: ")
+        betting = input("  Betting?: (Y/n) ")
 
-        newuser = Person(name=name,
-                         nickname=nickname,
-                         email=email,
-                         phonenumber=phonenumber,
-                         password=password,
-                         betting=betting.lower().startswith('y'))
-        member  = Membership(person=newuser, group=getgroup(args.group))
-        print('Added.')
+        newuser = Person(
+            name=name,
+            nickname=nickname,
+            email=email,
+            phonenumber=phonenumber,
+            password=password,
+            betting=betting.lower().startswith("y"),
+        )
+        member = Membership(person=newuser, group=getgroup(args.group))
+        print("Added.")
         session.commit()
 
     elif args.reminder and args.method:
-        if args.method == 'email':
+        if args.method == "email":
             if args.debug:
-                print('Debug: Reminder message via email.')
+                print("Debug: Reminder message via email.")
             email_reminder(args.group)
         else:
             if args.debug:
-                print('Debug: Reminder message via sms.')
+                print("Debug: Reminder message via sms.")
             sms_reminder(args.group)
 
     elif args.email_predictions and args.home_vs_away:
         home, away = args.home_vs_away
-        email_predictions(args.group, '%s_vs_%s' % (home, away))
+        email_predictions(args.group, "%s_vs_%s" % (home, away))
 
     elif args.message and args.method:
-        if args.method == 'email':
+        if args.method == "email":
             body = sys.stdin.read().strip()
             if not body:
-                print('Need to pass the body of the message via STDIN')
+                print("Need to pass the body of the message via STDIN")
             else:
                 email_message(args.group, args.message, body)
         else:
@@ -1121,7 +1419,7 @@ if __name__ == "__main__":
 
     elif args.sms_results and args.home_vs_away:
         home, away = args.home_vs_away
-        sms_gameresults(args.group, '%s_vs_%s' % (home, away), current_season())
+        sms_gameresults(args.group, "%s_vs_%s" % (home, away), current_season())
 
     elif args.list_sms:
         print_sms_messages()
