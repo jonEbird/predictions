@@ -60,7 +60,7 @@ class SMS():
                         sent = True
                         break  # hurray
 
-            except (Exception), e:
+            except (Exception) as e:
                 log.exception('Problem sending SMS: %s' % (str(e)))
                 errors += 1
 
@@ -77,11 +77,11 @@ class SMS():
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
-    import ConfigParser
-    config = ConfigParser.ConfigParser()
+    import configparser
+    config = configparser.ConfigParser()
     config.read(['predictions.config', 'predictions/predictions.config'])
     if not config.has_section('Twilio'):
-        print 'Could not get necessary Twilio token info from config. Exiting.'
+        print('Could not get necessary Twilio token info from config. Exiting.')
         sys.exit(1)
     sms = SMS(config.get('Twilio', 'twilio_num'),
               config.get('Twilio', 'twilio_account'),

@@ -34,10 +34,13 @@ $def with (games, people, names, pindex, charts, selected_season, seasons)
 	$for i, person in enumerate(people):
 	    data.setValue(0, ${pindex[person.name]+1}, 0);
 	$for i, game in enumerate(games, 1):
-            $if game.done and not game.canceled:
+            $if game.done:
     	        data.setValue($i, 0, '$game.opponent');
                 $for j, pdt in enumerate(game.predictions):
-                    data.setValue($i, ${pindex[pdt.person.name]+1}, ${abs(game.hscore - pdt.home) + abs(game.ascore - pdt.away)});
+                    $if game.canceled:
+                        data.setValue($i, ${pindex[pdt.person.name]+1}, 0);
+                    $else:
+                        data.setValue($i, ${pindex[pdt.person.name]+1}, ${abs(game.hscore - pdt.home) + abs(game.ascore - pdt.away)});
 
         var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
         chart.draw(data, {width: 1000, height: 500, title: 'Prediction Performance'});
@@ -45,6 +48,13 @@ $def with (games, people, names, pindex, charts, selected_season, seasons)
 </script>
 </head>
 <body>
+
+<!--
+people = $people
+$for i, game in enumerate(games, 1):
+    $i is $game
+    $game.predictions
+-->
 
 <div id="content">
 

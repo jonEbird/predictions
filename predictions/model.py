@@ -177,7 +177,7 @@ def remove_member(group, name, season=current_season()):
     # First remove predictions from this season
     season_picks = Predictions.query.filter(and_(Predictions.group == group_obj,
                                                  Predictions.person == person)).all()
-    map(session.delete, season_picks)
+    list(map(session.delete, season_picks))
     # Then remove membership from this season all together
     club_pass = Membership.query.filter(and_(Membership.person == person, Membership.group == group_obj)).one()
     session.delete(club_pass)
@@ -185,7 +185,7 @@ def remove_member(group, name, season=current_season()):
 
 
 def getperson(group, name, season=current_season()):
-    person = filter(lambda x: x.name == name, getpeople(group, season))
+    person = [x for x in getpeople(group, season) if x.name == name]
     if person:
         return person[0]
     else:

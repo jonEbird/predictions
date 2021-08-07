@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import re
 
 from lxml.html import fromstring, tostring
@@ -16,7 +16,7 @@ def get_odds(home_vs_away):
     hometeam = TEAM_NICKS.get(hometeam, hometeam)
     awayteam = TEAM_NICKS.get(awayteam, awayteam)
 
-    content = urllib.urlopen(ODDS_URL).read()
+    content = urllib.request.urlopen(ODDS_URL).read()
     doc = fromstring(content)
     #doc.make_links_absolute(url)
 
@@ -26,7 +26,7 @@ def get_odds(home_vs_away):
 
     both_teams = team_td.getparent().getparent().getchildren()
     both_teams_t = [ t.getchildren()[0].text for t in both_teams ]
-    other_team = filter(lambda x: x != hometeam, both_teams_t)[0]
+    other_team = [x for x in both_teams_t if x != hometeam][0]
     if other_team != awayteam:
         raise '<p>Can not find odds for %s vs %s</p>' % (hometeam, awayteam)
     else:
@@ -35,7 +35,7 @@ def get_odds(home_vs_away):
 
 if __name__ == '__main__':
 
-    print get_odds(sys.argv[1])
+    print(get_odds(sys.argv[1]))
     sys.exit(0)
 
     # pass a game matchup like the URLs such as Wisconsin_vs_OSU
@@ -47,4 +47,4 @@ if __name__ == '__main__':
         odds_html = get_odds(sys.argv[1])
         mc.set(key, odds_html)
 
-    print odds_html
+    print(odds_html)

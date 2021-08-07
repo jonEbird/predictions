@@ -19,6 +19,7 @@ img.coffee { height: 35px; }
 img.winningpic:hover { height: 150px; }
 span.stats { color: green; margin: 5px; }
 p.disclaimer { color: green; font-size:90%; }
+p.alert { color: red; font-size:200%; }
 /*
    predictions
    --------------- */

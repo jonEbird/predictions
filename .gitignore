@@ -3,3 +3,4 @@
 password.txt
 .emacs.desktop*
 predictions.txt
+/.venv/

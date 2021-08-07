@@ -2,17 +2,17 @@
 
 import os
 import sys
-import ConfigParser
+import configparser
 import smtplib
 import traceback
 import shutil
 import tempfile
 import random
 import logging
-
+from collections import OrderedDict
 from datetime import datetime, timedelta
 from math import sqrt, pow
-from urllib import quote
+from urllib.parse import quote
 from email.mime.text import MIMEText
 
 abspath = os.path.dirname(__file__)
@@ -32,10 +32,10 @@ defaults = { 'mpass': 'bingo', 'mode': 'dev',
              'EMAILADDR': 'jon@buckeyepredictions.com',
              'HTTPHOST': 'localhost/predictions',
              }
-config = ConfigParser.ConfigParser(defaults=defaults)
+config = configparser.ConfigParser(defaults=defaults)
 config.read(['predictions.config', 'predictions/predictions.config'])
 if not config.has_section('Predictions') or not config.has_section('Testing'):
-    print "Error: Need to configure [predictions/]predictions.config with at least 'Predictions' and 'Testing' sections."
+    print("Error: Need to configure [predictions/]predictions.config with at least 'Predictions' and 'Testing' sections.")
     sys.exit(-1)
 
 #-Web----------------------------------------------
@@ -55,7 +55,7 @@ render = web.template.render('templates/')
 
 def utf8(s):
     """Return a unicode version of input s"""
-    if isinstance(s, unicode):
+    if isinstance(s, str):
         return s.encode('utf-8')
     # if isinstance(s, bytes):
     #     return s.decode("utf-8")
@@ -246,7 +246,7 @@ def game_info(group, home_vs_away, season=current_season()):
 
         return game
 
-    except (Exception), e:
+    except (Exception) as e:
         traceback.print_exc()
         raise e
 
@@ -338,6 +338,9 @@ def sms_reminder(group):
                   config.get('Twilio', 'twilio_account'),
                   config.get('Twilio', 'twilio_token'))
         for game in Games.query.filter(and_(Games.gametime < midnight_tomorrow, Games.gametime > now)).all():
+            canceled = game.hscore == 0 and game.ascore == 0
+            if canceled:
+                continue
 
             undecided = getundecided(group, game)
 
@@ -362,6 +365,10 @@ def email_reminder(group):
         now = datetime.now()
         midnight_tomorrow = datetime(*[ int(x) for x in (now + timedelta(hours=24)).strftime('%Y %m %d 23 59').split()])
         for game in Games.query.filter(and_(Games.gametime < midnight_tomorrow, Games.gametime > now)).all():
+
+            canceled = game.hscore == 0 and game.ascore == 0
+            if canceled:
+                continue
 
             undecided = getundecided(group, game)
 
@@ -442,8 +449,8 @@ The Gamemaster.'
                 s.sendmail(me, toaddr, msg.as_string())
                 s.quit()
 
-    except (Exception), e:
-        print 'Sorry. Something happened while trying to email: %s' % (str(e))
+    except (Exception) as e:
+        print('Sorry. Something happened while trying to email: %s' % (str(e)))
 
 
 def email_predictions(group, home_vs_away):
@@ -474,8 +481,8 @@ def email_predictions(group, home_vs_away):
         s.sendmail(config.get('Predictions', 'EMAILADDR'), bcc, msg.as_string())
         s.quit()
 
-    except (Exception), e:
-        print 'Sorry. Something happened while trying to email: %s' % (str(e))
+    except (Exception) as e:
+        print('Sorry. Something happened while trying to email: %s' % (str(e)))
 
 
 def sms_gameresults(group, home_vs_away, season, overriding_msg=""):
@@ -548,7 +555,7 @@ def sms_gameresults(group, home_vs_away, season, overriding_msg=""):
             sms.send(person.phonenumber, text)
         del sms
 
-    except (Exception), e:
+    except (Exception) as e:
         raise e
         #print 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
 
@@ -567,11 +574,11 @@ def print_sms_messages():
         stat_n   += 1
         stat_tot += ts
 
-        print '%s sent to %s (%s) and completed %fs later:\n  "%s"' % \
-            (date_created.strftime('%F %T'), num2name.get(m.to, 'Unknown'), m.to, ts, m.body)
+        print('%s sent to %s (%s) and completed %fs later:\n  "%s"' % \
+            (date_created.strftime('%F %T'), num2name.get(m.to, 'Unknown'), m.to, ts, m.body))
 
-    print '%d messages sent for an average of %fs to complete the message.' % \
-        (stat_n, stat_tot / stat_n)
+    print('%d messages sent for an average of %fs to complete the message.' % \
+        (stat_n, stat_tot / stat_n))
 
 
 def update_betting_games(group, season):
@@ -776,7 +783,7 @@ class GamesURL:
         names = [ p.name for p in people ]
         pindex = dict([ (person.name, idx) for idx, person in enumerate(people) ])
         # some stats initialization
-        for name, i in pindex.iteritems():
+        for name, i in pindex.items():
             person = people[i]
             person.tot_games = 0
             person.tot_delta = 0
@@ -786,7 +793,7 @@ class GamesURL:
         for i in range(len(games)):
             game = game_info(group, '%s_vs_%s' % \
                              (games[i].hometeam, games[i].awayteam), selected_season)
-
+            
             # Helping out the templating engine
             game.ahref = '%s_vs_%s' % (game.hometeam, game.awayteam)
             if game.hometeam == 'OSU':
@@ -796,7 +803,7 @@ class GamesURL:
             games[i] = game
 
             # # Update stats on completed games
-            if not game.done:
+            if not game.done or game.canceled:
                 continue
 
             for i, p in enumerate(game.people):
@@ -853,12 +860,12 @@ class PredictionsURL:
                     odds_html = get_odds(home_vs_away)
                     game.odds = odds_html
                     session.commit()
-                except (Exception), e:
+                except (Exception) as e:
                     pass
 
             return render.predictions(group, game)
-        except (Exception), e:
-            print 'print_exc():'
+        except (Exception) as e:
+            print('print_exc():')
             traceback.print_exc(file=sys.stdout)
             return 'Sorry. You probably are looking for another game?\nPsst: %s' % (str(e))
 
@@ -887,7 +894,7 @@ class PredictionsURL:
                              game=game, group=groupplay)
                 session.commit()
 
-        except (Exception), e:
+        except (Exception) as e:
             return 'DEBUG: Got an error: %s' % (str(e))
             pass
         return web.seeother('http://%s/%s/%s/' % \
@@ -909,7 +916,7 @@ class FinalscoreURL:
 
             return render.finalscore(hometeam, awayteam, myform, msg='')
 
-        except (Exception), e:
+        except (Exception) as e:
             return 'Sorry. You\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
 
     def POST(self, group, home_vs_away):
@@ -948,7 +955,7 @@ class FinalscoreURL:
                 return render.finalscore(hometeam, awayteam, myform,
                                          msg='Wrong password. Try again.')
 
-        except (Exception), e:
+        except (Exception) as e:
             return 'Seriously, you\'re going to have to ssh into the machine to post the score.\nPsst: %s' % (str(e))
 
 
@@ -971,7 +978,7 @@ class PredictURL:
             )
 
             return render.predict(game, p, myform, msg='')
-        except (Exception), e:
+        except (Exception) as e:
             return 'Sorry. You probably are looking for another game?\n%s' % (str(e))
 
     def POST(self, group, home_vs_away, name):
@@ -981,6 +988,11 @@ class PredictURL:
         groupplay = getgroup(group, i.season)
         p = [m.person for m in Membership.query.filter(Membership.group == groupplay).all()
              if m.person.name == name][0]
+
+        canceled = game.hscore == 0 and game.ascore == 0
+        if canceled:
+            return web.seeother('http://%s/%s/%s/' % \
+                                (config.get('Predictions', 'HTTPHOST'), group, home_vs_away))
 
         # first of all, you can not make predictions when the game is on
         if datetime.now() > game.gametime:
@@ -1065,13 +1077,13 @@ if __name__ == "__main__":
     # parser.parse_args('--group bucknuts'.split())
 
     if args.adduser:
-        print "Adding a new user. I will prompt you for the necessary intel."
-        name        = raw_input("  Full Name: ")
-        nickname    = raw_input("  Nickame: ")
-        email       = raw_input("  Email: ")
-        phonenumber = raw_input("  Phone#: ")
-        password    = raw_input("  Password: ")
-        betting     = raw_input("  Betting?: (Y/n) ")
+        print("Adding a new user. I will prompt you for the necessary intel.")
+        name        = input("  Full Name: ")
+        nickname    = input("  Nickame: ")
+        email       = input("  Email: ")
+        phonenumber = input("  Phone#: ")
+        password    = input("  Password: ")
+        betting     = input("  Betting?: (Y/n) ")
 
         newuser = Person(name=name,
                          nickname=nickname,
@@ -1080,17 +1092,17 @@ if __name__ == "__main__":
                          password=password,
                          betting=betting.lower().startswith('y'))
         member  = Membership(person=newuser, group=getgroup(args.group))
-        print 'Added.'
+        print('Added.')
         session.commit()
 
     elif args.reminder and args.method:
         if args.method == 'email':
             if args.debug:
-                print 'Debug: Reminder message via email.'
+                print('Debug: Reminder message via email.')
             email_reminder(args.group)
         else:
             if args.debug:
-                print 'Debug: Reminder message via sms.'
+                print('Debug: Reminder message via sms.')
             sms_reminder(args.group)
 
     elif args.email_predictions and args.home_vs_away:
@@ -1101,7 +1113,7 @@ if __name__ == "__main__":
         if args.method == 'email':
             body = sys.stdin.read().strip()
             if not body:
-                print 'Need to pass the body of the message via STDIN'
+                print('Need to pass the body of the message via STDIN')
             else:
                 email_message(args.group, args.message, body)
         else:
