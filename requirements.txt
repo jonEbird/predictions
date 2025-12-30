@@ -1,5 +1,4 @@
-SQLAlchemy==1.4.22
-lxml==4.6.3
-memcache==0.8.0
-twilio==6.62.1
+SQLAlchemy==1.4.53
+lxml==4.9.4
+twilio==8.10.0
 web.py==0.62

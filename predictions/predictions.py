@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 
-import os
-import sys
 import configparser
-import smtplib
-import traceback
-import shutil
-import tempfile
-import random
+import functools
 import logging
+import os
+import random
+import shutil
+import smtplib
+import sys
+import tempfile
+import traceback
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from math import sqrt, pow
-from urllib.parse import quote
 from email.mime.text import MIMEText
+from math import pow, sqrt
+from urllib.parse import quote
 
 abspath = os.path.dirname(__file__)
 sys.path.append(abspath)
@@ -24,8 +25,8 @@ import web
 
 from model import *
 from utils.ncaa_odds import *
-from utils.sms import *
 from utils.profile import *
+from utils.sms import *
 
 # -Configs------------------------------------------
 defaults = {
@@ -43,35 +44,30 @@ if not config.has_section("Predictions") or not config.has_section("Testing"):
     sys.exit(-1)
 
 # -Web----------------------------------------------
-
+# fmt: off
 urls = (
-    "/([^/]*)/",
-    "GamesURL",
-    "/([^/]*)/profile/([^/]*)/",
-    "ProfileURL",  # group, name
-    "/([^/]*)/([^/]*)/",
-    "PredictionsURL",
-    "/([^/]*)/([^/]*)/final",
-    "FinalscoreURL",
-    "/([^/]*)/([^/]*)/([^/]*)/",
-    "PredictURL",
-    "/([^/]*)/admin",
-    "AdminURL",
-    "/([^/]*)/email",
-    "EmailURL",
-    "/([^/]*)/mugs",
-    "Mugs",
+    "/([^/]*)/",                 "GamesURL",
+    "/([^/]*)/profile/([^/]*)/", "ProfileURL",  # group, name
+    "/([^/]*)/([^/]*)/",         "PredictionsURL", # group, home_vs_away
+    "/([^/]*)/([^/]*)/final",    "FinalscoreURL",
+    "/([^/]*)/([^/]*)/([^/]*)/", "PredictURL",
+    "/([^/]*)/admin",            "AdminURL",
+    "/([^/]*)/email",            "EmailURL",
+    "/([^/]*)/mugs",             "Mugs",
 )
+# fmt: on
+
 render = web.template.render("templates/")
 
 
 def utf8(s):
-    """Return a unicode version of input s"""
-    if isinstance(s, str):
-        return s.encode("utf-8")
-    # if isinstance(s, bytes):
-    #     return s.decode("utf-8")
-    return s
+    """Return a unicode string version of input s (Python 3 compatible)"""
+    if isinstance(s, bytes):
+        return s.decode("utf-8")
+    elif isinstance(s, str):
+        return s
+    else:
+        return str(s)
 
 
 def custom_msg(msg, person):
@@ -259,7 +255,7 @@ def game_info(group, home_vs_away, season=current_season()):
 
         # Sort people based on their prediction and take into account tie breakers
         if game.ingamescores or game.done:
-            people.sort(cmp=prediction_cmp)
+            people.sort(key=functools.cmp_to_key(prediction_cmp))
 
         # Final piece of business is deciding who wins coffee
         betters_index = [i for (i, person) in enumerate(people) if person.betting]
@@ -397,9 +393,11 @@ def sms_reminder(group):
             config.get("Twilio", "twilio_account"),
             config.get("Twilio", "twilio_token"),
         )
-        for game in Games.query.filter(
-            and_(Games.gametime < midnight_tomorrow, Games.gametime > now)
-        ).all():
+        for game in (
+            session.query(Games)
+            .filter(and_(Games.gametime < midnight_tomorrow, Games.gametime > now))
+            .all()
+        ):
             canceled = game.hscore == 0 and game.ascore == 0
             if canceled:
                 continue
@@ -439,9 +437,11 @@ def email_reminder(group):
                 for x in (now + timedelta(hours=24)).strftime("%Y %m %d 23 59").split()
             ]
         )
-        for game in Games.query.filter(
-            and_(Games.gametime < midnight_tomorrow, Games.gametime > now)
-        ).all():
+        for game in (
+            session.query(Games)
+            .filter(and_(Games.gametime < midnight_tomorrow, Games.gametime > now))
+            .all()
+        ):
 
             canceled = game.hscore == 0 and game.ascore == 0
             if canceled:
@@ -725,7 +725,9 @@ def print_sms_messages():
         config.get("Twilio", "twilio_account"),
         config.get("Twilio", "twilio_token"),
     )
-    num2name = dict([("+1%s" % p.phonenumber, p.name) for p in Person.query.all()])
+    num2name = dict(
+        [("+1%s" % p.phonenumber, p.name) for p in session.query(Person).all()]
+    )
     stat_n, stat_tot = 0, 0.0
     for m in sms.get_messages():
         date_created = (
@@ -759,7 +761,7 @@ def print_sms_messages():
 def update_betting_games(group, season):
     """Ensure that the next game is queued for betting"""
     groupplay = getgroup(group, season)
-    betting = Betting.query.filter(Betting.group == groupplay).all()
+    betting = session.query(Betting).filter(Betting.group == groupplay).all()
     betting.sort(key=lambda g: g.game.gametime)
     games = [bet.game for bet in betting]
     for game in games:
@@ -824,7 +826,7 @@ class ProfileURL:
         # Now lets take a look at the picture
         if i.Mugshot.filename:
             tmpfile = tempfile.mktemp(prefix="predictions_")
-            fh = open(tmpfile, "w")
+            fh = open(tmpfile, "wb")
             fh.write(i.Mugshot.file.read())
             fh.close()
 
@@ -866,9 +868,9 @@ class EmailURL:
 class AdminURL:
     def GET(self, group):
         i = web.input(season=current_season())
-        # games = Games.query.filter(Games.season==i.season).order_by(Games.gametime).all()
+        # games = session.query(Games).filter(Games.season==i.season).order_by(Games.gametime).all()
         groupplay = getgroup(group, i.season)
-        betting = Betting.query.filter(Betting.group == groupplay).all()
+        betting = session.query(Betting).filter(Betting.group == groupplay).all()
         betting.sort(key=lambda g: g.game.gametime)
         games = [bet.game for bet in betting]
         for i in range(len(games)):
@@ -911,10 +913,10 @@ class AdminURL:
                 'Sorry. Could not parse the date of "%s". Try a format of: YYYY-MM-DD HH:MM (%s)'
                 % (str(i.Datetime), str(gametime))
             )
-            betting = Betting.query.filter(Betting.group == groupplay).all()
+            betting = session.query(Betting).filter(Betting.group == groupplay).all()
             betting.sort(key=lambda g: g.game.gametime)
             games = [bet.game for bet in betting]
-            # games = Games.query.filter(Games.season==i.season).order_by(Games.gametime).all()
+            # games = session.query(Games).filter(Games.season==i.season).order_by(Games.gametime).all()
             for n in range(len(games)):
                 game = games[n]
                 # first, it is over?
@@ -974,12 +976,12 @@ class GamesURL:
         # We care about three DB things for this page: Games, People, Predictions
         # 1. Games
         groupplay = getgroup(group, i.season)
-        betting = Betting.query.filter(Betting.group == groupplay).all()
+        betting = session.query(Betting).filter(Betting.group == groupplay).all()
         betting.sort(key=lambda g: g.game.gametime)
         games = [bet.game for bet in betting if bet.game.hscore > -2]
         # 2. People
         people = getpeople(group, i.season)
-        # people = [ m.person for m in Membership.query.filter(Membership.group==groupplay).all() ]
+        # people = [m.person for m in session.query(Membership).filter(Membership.group==groupplay).all()]
         names = [p.name for p in people]
         pindex = dict([(person.name, idx) for idx, person in enumerate(people)])
         # some stats initialization
@@ -1026,7 +1028,8 @@ class GamesURL:
                 [p.name for p in game.people if p.winningcoffee]
             )
 
-        people.sort(cmp=lambda a, b: cmp(a.tot_delta, b.tot_delta))
+        # people.sort(cmp=lambda a, b: cmp(a.tot_delta, b.tot_delta))
+        people.sort(key=lambda p: p.tot_delta)
 
         # Barchart for the season
         barchart_url = (
@@ -1099,7 +1102,7 @@ class PredictionsURL:
 
             # supplementary info
             session.commit()  # fixes caching?
-            person = Person.query.filter_by(password=password).one()
+            person = session.query(Person).filter_by(password=password).one()
             game = getgamebyversus(home_vs_away, i.season)
             game.done = game.hscore > -1
 
@@ -1200,11 +1203,13 @@ class PredictURL:
             i = web.input(season=current_season())
             hometeam, awayteam = home_vs_away.split("_vs_")
             game = getgamebyversus(home_vs_away, i.season)
-            # p = Person.query.filter_by(name=name).one()
+            # p = session.query(Person).filter_by(name=name).one()
             groupplay = getgroup(group, i.season)
             p = [
                 m.person
-                for m in Membership.query.filter(Membership.group == groupplay).all()
+                for m in session.query(Membership)
+                .filter(Membership.group == groupplay)
+                .all()
                 if m.person.name == name
             ][0]
 
@@ -1225,7 +1230,9 @@ class PredictURL:
         groupplay = getgroup(group, i.season)
         p = [
             m.person
-            for m in Membership.query.filter(Membership.group == groupplay).all()
+            for m in session.query(Membership)
+            .filter(Membership.group == groupplay)
+            .all()
             if m.person.name == name
         ][0]
 
@@ -1253,7 +1260,7 @@ class PredictURL:
 
         if p.password == i.password or i.password == config.get("Predictions", "mpass"):
             # Is there already a prediction out there for this?
-            q = Predictions.query.filter(
+            q = session.query(Predictions).filter(
                 and_(
                     Predictions.group == groupplay,
                     Predictions.game == game,
@@ -1370,12 +1377,11 @@ if __name__ == "__main__":
         help="Debugging the arguments / actions.",
     )
     args = parser.parse_args()
-    # parser.parse_args('--group bucknuts'.split())
 
     if args.adduser:
         print("Adding a new user. I will prompt you for the necessary intel.")
         name = input("  Full Name: ")
-        nickname = input("  Nickame: ")
+        nickname = input("  Nickname: ")
         email = input("  Email: ")
         phonenumber = input("  Phone#: ")
         password = input("  Password: ")
@@ -1424,4 +1430,4 @@ if __name__ == "__main__":
     elif args.list_sms:
         print_sms_messages()
 
-    # app.run()
+    app.run()
