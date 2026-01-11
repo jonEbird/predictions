@@ -1,64 +1,49 @@
 #!/bin/bash
 
-set -e
+# Deployment script for Predictions App
+# Run this on your Linode server
 
-cd "$(dirname "$0")"
-SRC_DIR=$(pwd)
-DST_DIR="/var/www/buckeyepredictions"
+set -e  # Exit on error
 
-usage() {
-    cat <<EOF
-Usage: $(basename -- $0) [-n] [pulldb] [prod]
-       If "prod" not specified, will try to deploy locally.
-EOF
-}
+echo "🚀 Starting deployment..."
 
-TESTING="no"
-MODE="dev"
-[ "$1" == '-n' ] && { shift; TESTING="yes"; }
+# Pull latest code
+echo "📥 Pulling latest code from git..."
+git pull origin master  # or your branch name
 
-if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
-    usage
-    exit 0
-fi
+# Stop existing container
+echo "🛑 Stopping existing container..."
+docker-compose down
 
-# Other ways to use this script
-# 1. Pull production DB
-if [ "$1" == "pulldb" ]; then
-    echo "Pulling DB from prod"
-    ssh linbird "cat /var/www/buckeyepredictions/predictions/predictions.sqlite" \
-        | sudo -u apache tee /var/www/buckeyepredictions/predictions/predictions.sqlite >/dev/null
-    exit 0
-elif [ "$1" == "prod" ]; then
-    MODE="prod"
-    # git archive --format=tar.gz HEAD | ssh linbird "tar -C /var/www/buckeyepredictions -xzvf -"
-    git ls-files | \
-        xargs ls 2>&- | \
-        xargs tar -cf - | \
-        ssh linbird "tar -C /var/www/buckeyepredictions -xvf -"
-    ssh linbird "service httpd restart"
-    exit 0
-fi
+# Rebuild and start
+echo "🔨 Building new container..."
+docker-compose build --no-cache
 
-# Sanity checks
-if [ "$SRC_DIR" == "$DST_DIR" ]; then
-    echo "Error: Do not run this from the deployment target directory. Exiting."
+echo "▶️  Starting container..."
+docker-compose up -d
+
+# Wait for healthcheck
+echo "⏳ Waiting for app to be healthy..."
+sleep 10
+
+# Check if container is running
+if [ "$(docker ps -q -f name=predictions-app)" ]; then
+    echo "✅ Deployment successful!"
+    echo ""
+    echo "📊 Container status:"
+    docker-compose ps
+    echo ""
+    echo "📝 Recent logs:"
+    docker-compose logs --tail=20
+else
+    echo "❌ Deployment failed - container not running"
+    echo "📝 Logs:"
+    docker-compose logs
     exit 1
 fi
 
-if [ $MODE == "dev" ] && [ ! -d ${DST_DIR} ]; then
-    echo "Error: You are not able to push to production: \"${DST_DIR}\" not found to push to. Exiting."
-    exit 2
-fi
+# Clean up old images
+echo "🧹 Cleaning up old Docker images..."
+docker image prune -f
 
-git ls-files |\
-  xargs ls 2>&- |\
-  xargs tar -c --owner=apache f - |\
-  sudo -u apache tar -C /var/www/buckeyepredictions -xvf -
-
-sudo service httpd restart
-
-# for file in $(git ls-files); do
-#     # Does the file even exist?
-#     echo
-# done
+echo "✨ Deployment complete!"

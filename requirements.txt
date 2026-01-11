@@ -1,4 +1,0 @@
-SQLAlchemy==1.4.53
-lxml==4.9.4
-twilio==8.10.0
-web.py==0.62

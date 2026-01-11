@@ -1,6 +1,53 @@
-*.pyc
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+.svelte-kit/
+build/
+.vercel/
+.netlify/
+
+# Database
+predictions.db
+predictions.db-journal
 *.sqlite
-password.txt
-.emacs.desktop*
-predictions.txt
-/.venv/
+*.sqlite-journal
+
+# Drizzle migrations (auto-generated)
+src/lib/db/migrations/*
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Uploads (user-generated content)
+uploads/*
+!uploads/README.md
+!uploads/mugshots/
+!uploads/groups/
+!uploads/prizes/
+uploads/mugshots/*
+uploads/groups/*
+uploads/prizes/*
+!uploads/**/.gitkeep

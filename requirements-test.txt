@@ -1,5 +1,0 @@
-flake8
-pytest
-gunicorn
-mypy
-black
