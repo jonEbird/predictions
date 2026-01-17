@@ -1,8 +1,9 @@
 <script lang="ts">
-	export let status: string = 'scheduled';
+	export let status: string | null | undefined = 'scheduled';
 
-	function getStatusConfig(status: string) {
-		switch (status) {
+	function getStatusConfig(status: string | null | undefined) {
+		const statusValue = status || 'scheduled';
+		switch (statusValue) {
 			case 'scheduled':
 				return {
 					label: 'Scheduled',

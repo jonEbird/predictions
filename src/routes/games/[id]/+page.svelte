@@ -333,7 +333,7 @@
 										}}
 									>
 										{#if editingPredictionId}
-											<input type="hidden" name="predictionId" value={memberPrediction.prediction.id} />
+											<input type="hidden" name="predictionId" value={memberPrediction?.prediction.id} />
 										{:else}
 											<input type="hidden" name="userId" value={member.user.id} />
 										{/if}
@@ -403,7 +403,7 @@
 										<div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
 											<button
 												type="button"
-												on:click={() => startEditPrediction(memberPrediction.prediction.id, 0, 0)}
+												on:click={() => startEditPrediction(memberPrediction?.prediction.id || 0, 0, 0)}
 												class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
 											>
 												<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

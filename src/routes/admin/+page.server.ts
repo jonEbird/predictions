@@ -238,7 +238,7 @@ export const actions: Actions = {
 					.innerJoin(users, eq(memberships.userId, users.id))
 					.where(eq(memberships.groupId, group.id));
 
-				const adminUser = members.find(m => m.user.id === locals.user.id);
+				const adminUser = members.find(m => m.user.id === locals.user?.id);
 				const adminEmail = adminUser?.user.email || undefined;
 				const adminPhone = adminUser?.user.phoneNumber || undefined;
 
@@ -331,7 +331,7 @@ export const actions: Actions = {
 			}
 
 			// Get admin's email for dev mode filtering
-			const adminUser = members.find(m => m.user.id === locals.user.id);
+			const adminUser = members.find(m => m.user.id === locals.user?.id);
 			const adminEmail = adminUser?.user.email || undefined;
 
 			// Create email template
@@ -437,7 +437,7 @@ export const actions: Actions = {
 			}
 
 			// Get admin's phone for dev mode filtering
-			const adminUser = members.find(m => m.user.id === locals.user.id);
+			const adminUser = members.find(m => m.user.id === locals.user?.id);
 			const adminPhone = adminUser?.user.phoneNumber || undefined;
 
 			// Send SMS via Twilio (dev mode protection is in the SMS module)

@@ -28,7 +28,7 @@
 			use:enhance={() => {
 				return async ({ result, update }) => {
 					if (result.type === 'failure') {
-						message = result.data?.message || 'Login failed';
+						message = (result.data?.message as string) || 'Login failed';
 					}
 					await update();
 				};

@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs';
 import { db } from '$lib/db';
-import { users } from '$lib/db/schema';
+import { users, type User } from '$lib/db/schema';
 import { eq } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 
@@ -33,9 +33,7 @@ export function createSession(userId: number): string {
 /**
  * Get user from session token
  */
-export async function getUserFromSession(
-	sessionToken: string
-): Promise<{ id: number; name: string; email: string; nickname: string | null } | null> {
+export async function getUserFromSession(sessionToken: string): Promise<User | null> {
 	try {
 		const decoded = JSON.parse(Buffer.from(sessionToken, 'base64').toString());
 		const userId = decoded.userId;
@@ -44,12 +42,7 @@ export async function getUserFromSession(
 
 		if (!user) return null;
 
-		return {
-			id: user.id,
-			name: user.name,
-			email: user.email,
-			nickname: user.nickname
-		};
+		return user;
 	} catch {
 		return null;
 	}

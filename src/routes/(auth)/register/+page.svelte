@@ -29,8 +29,8 @@
 			use:enhance={() => {
 				return async ({ result, update }) => {
 					if (result.type === 'failure') {
-						message = result.data?.message || 'Registration failed';
-						errorFields = result.data?.fields || [];
+						message = (result.data?.message as string) || 'Registration failed';
+						errorFields = (result.data?.fields as string[]) || [];
 					}
 					await update();
 				};

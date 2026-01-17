@@ -234,11 +234,12 @@
 
 								<div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
 									<div>
-										<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+										<label for="edit-job-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 											Job Name
 										</label>
 										<input
 											type="text"
+											id="edit-job-name"
 											name="name"
 											bind:value={editJob.name}
 											required
@@ -247,11 +248,12 @@
 									</div>
 
 									<div>
-										<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+										<label for="edit-job-schedule" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 											Schedule
 										</label>
 										<input
 											type="text"
+											id="edit-job-schedule"
 											name="schedule"
 											bind:value={editJob.schedule}
 											required
@@ -260,10 +262,11 @@
 									</div>
 
 									<div>
-										<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+										<label for="edit-job-enabled" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 											Enabled
 										</label>
 										<select
+											id="edit-job-enabled"
 											name="enabled"
 											bind:value={editJob.enabled}
 											required

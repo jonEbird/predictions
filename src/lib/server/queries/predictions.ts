@@ -149,21 +149,19 @@ export async function calculateRankings(gameId: number, groupId: number) {
  * Get all predictions by a user across all games
  */
 export async function getUserPredictions(userId: number, groupId?: number) {
-	const query = db
+	const whereConditions = groupId
+		? and(eq(predictions.userId, userId), eq(predictions.groupId, groupId))
+		: eq(predictions.userId, userId);
+
+	return await db
 		.select({
 			prediction: predictions,
 			game: games
 		})
 		.from(predictions)
 		.innerJoin(games, eq(predictions.gameId, games.id))
-		.where(eq(predictions.userId, userId))
+		.where(whereConditions)
 		.orderBy(desc(games.gameTime));
-
-	if (groupId) {
-		return await query.where(and(eq(predictions.userId, userId), eq(predictions.groupId, groupId)));
-	}
-
-	return await query;
 }
 
 /**

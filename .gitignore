@@ -41,6 +41,9 @@ npm-debug.log*
 coverage/
 .nyc_output/
 
+# Vitest
+.vitest/
+
 # Uploads (user-generated content)
 uploads/*
 !uploads/README.md

@@ -2,7 +2,7 @@
 	export let rank: number | null;
 	export let delta: number | null = null;
 	export let previousRank: number | null = null;
-	export let wonCoffee: boolean = false;
+	export let wonCoffee: boolean | null | undefined = false;
 
 	function getRankDisplay(rank: number | null): string {
 		if (rank === null) return '-';
