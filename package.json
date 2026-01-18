@@ -8,6 +8,7 @@
     "build": "npx vite build",
     "preview": "npx vite preview",
     "sync": "npx svelte-kit sync",
+    "postinstall": "npx svelte-kit sync",
     "test": "npx vitest",
     "test:ui": "npx vitest --ui",
     "test:run": "npx vitest run",
