@@ -21,12 +21,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: |
-          npm install
-          echo "Checking if @sveltejs/kit was installed..."
-          ls -la node_modules/@sveltejs/kit/package.json
-          echo "Checking if .svelte-kit was generated..."
-          ls -la .svelte-kit/tsconfig.json
+        run: npm install
 
       - name: Run type checking
         run: npm run check
