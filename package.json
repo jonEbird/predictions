@@ -7,7 +7,7 @@
     "dev": "npx vite dev",
     "build": "npx vite build",
     "preview": "npx vite preview",
-    "sync": "npx vite build --mode development --force",
+    "sync": "npx vite build --mode development",
     "test": "npx vitest",
     "test:ui": "npx vitest --ui",
     "test:run": "npx vitest run",
