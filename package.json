@@ -7,7 +7,7 @@
     "dev": "npx vite dev",
     "build": "npx vite build",
     "preview": "npx vite preview",
-    "sync": "npx --no-install svelte-kit sync",
+    "sync": "node node_modules/@sveltejs/kit/svelte-kit.js sync",
     "test": "npx vitest",
     "test:ui": "npx vitest --ui",
     "test:run": "npx vitest run",
