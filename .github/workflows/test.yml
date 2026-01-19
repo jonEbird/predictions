@@ -19,6 +19,9 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Setup environment variables
+        run: cp .env.example .env
+
       - name: Install dependencies
         run: |
           # Retry npm install up to 3 times if it fails
