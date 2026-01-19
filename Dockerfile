@@ -9,13 +9,10 @@ COPY .env.example ./.env
 COPY svelte.config.js ./
 COPY vite.config.ts ./
 COPY tsconfig.json ./
+COPY docker-install.sh ./
 
-# Install dependencies (use npm install, not npm ci - more reliable)
-RUN npm install && \
-    # Verify svelte-kit sync ran successfully
-    test -f node_modules/@sveltejs/kit/package.json && \
-    test -f .svelte-kit/tsconfig.json || \
-    (echo "ERROR: svelte-kit sync failed during postinstall" && exit 1)
+# Install dependencies with retry logic (handles npm bug in GitHub Actions)
+RUN sh docker-install.sh
 
 # Copy source code
 COPY . .
