@@ -1,13 +1,21 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Copy package files
+# Copy package files and config files needed for sync
 COPY package*.json ./
+COPY .env.example ./.env
+COPY svelte.config.js ./
+COPY vite.config.ts ./
+COPY tsconfig.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies (use npm install, not npm ci - more reliable)
+RUN npm install && \
+    # Verify svelte-kit sync ran successfully
+    test -f node_modules/@sveltejs/kit/package.json && \
+    test -f .svelte-kit/tsconfig.json || \
+    (echo "ERROR: svelte-kit sync failed during postinstall" && exit 1)
 
 # Copy source code
 COPY . .
@@ -16,15 +24,15 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install production dependencies only
-RUN npm ci --production
+# Install production dependencies only (skip postinstall scripts)
+RUN npm ci --omit=dev --ignore-scripts
 
 # Copy built app from builder
 COPY --from=builder /app/build ./build
