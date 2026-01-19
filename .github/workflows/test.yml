@@ -26,17 +26,16 @@ jobs:
         run: |
           # Retry npm install up to 3 times if it fails
           for i in 1 2 3; do
-            echo "Install attempt $i..."
-            npm install
+            npm install 2>&1 | grep -v "^npm warn" || true
 
             # Check if install actually worked (npm may exit 0 despite failing)
             if [ -f "node_modules/@sveltejs/kit/package.json" ] && [ -f ".svelte-kit/tsconfig.json" ]; then
-              echo "✓ Installation verified - packages installed correctly"
+              echo "✓ Dependencies installed successfully"
               break
             else
-              echo "✗ Installation failed - packages missing despite npm exit 0"
+              echo "✗ Install attempt $i failed - packages missing"
 
-              # Show the debug log
+              # Show the debug log on failure
               DEBUG_LOG=$(ls -t /home/runner/.npm/_logs/*-debug-*.log 2>/dev/null | head -1)
               if [ -n "$DEBUG_LOG" ]; then
                 echo "=== NPM Debug Log ==="
