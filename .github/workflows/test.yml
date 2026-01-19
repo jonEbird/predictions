@@ -18,10 +18,36 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          # Retry npm install up to 3 times if it fails
+          for i in 1 2 3; do
+            echo "Install attempt $i..."
+            if npm install; then
+              echo "npm install succeeded"
+              break
+            else
+              echo "npm install failed (attempt $i/3)"
+              if [ $i -eq 3 ]; then
+                echo "All install attempts failed"
+                exit 1
+              fi
+              echo "Retrying in 5 seconds..."
+              sleep 5
+            fi
+          done
+
+          # Verify installation
+          if [ ! -f "node_modules/@sveltejs/kit/package.json" ]; then
+            echo "ERROR: @sveltejs/kit not installed"
+            exit 1
+          fi
+          if [ ! -f ".svelte-kit/tsconfig.json" ]; then
+            echo "ERROR: .svelte-kit not generated"
+            exit 1
+          fi
+          echo "✓ Installation verified"
 
       - name: Run type checking
         run: npm run check
