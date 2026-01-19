@@ -24,30 +24,33 @@ jobs:
           # Retry npm install up to 3 times if it fails
           for i in 1 2 3; do
             echo "Install attempt $i..."
-            if npm install; then
-              echo "npm install succeeded"
+            npm install
+
+            # Check if install actually worked (npm may exit 0 despite failing)
+            if [ -f "node_modules/@sveltejs/kit/package.json" ] && [ -f ".svelte-kit/tsconfig.json" ]; then
+              echo "✓ Installation verified - packages installed correctly"
               break
             else
-              echo "npm install failed (attempt $i/3)"
+              echo "✗ Installation failed - packages missing despite npm exit 0"
+
+              # Show the debug log
+              DEBUG_LOG=$(ls -t /home/runner/.npm/_logs/*-debug-*.log 2>/dev/null | head -1)
+              if [ -n "$DEBUG_LOG" ]; then
+                echo "=== NPM Debug Log ==="
+                cat "$DEBUG_LOG"
+                echo "===================="
+              fi
+
               if [ $i -eq 3 ]; then
-                echo "All install attempts failed"
+                echo "ERROR: All 3 install attempts failed"
                 exit 1
               fi
-              echo "Retrying in 5 seconds..."
+
+              echo "Cleaning up and retrying in 5 seconds..."
+              rm -rf node_modules .svelte-kit package-lock.json
               sleep 5
             fi
           done
-
-          # Verify installation
-          if [ ! -f "node_modules/@sveltejs/kit/package.json" ]; then
-            echo "ERROR: @sveltejs/kit not installed"
-            exit 1
-          fi
-          if [ ! -f ".svelte-kit/tsconfig.json" ]; then
-            echo "ERROR: .svelte-kit not generated"
-            exit 1
-          fi
-          echo "✓ Installation verified"
 
       - name: Run type checking
         run: npm run check
