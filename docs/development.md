@@ -40,7 +40,61 @@ act -l
 ### Benefits
 - Test CI changes before pushing to GitHub
 - Faster iteration on workflow issues
-- Matches GitHub Actions environment exactly (Node 20, Ubuntu)
+- Matches GitHub Actions environment exactly (Node 22, Ubuntu)
+
+## Node.js Version Management
+
+This project uses Node.js 22 (LTS, supported until April 2027).
+
+### Version Files and Locations
+
+When updating the Node.js version, you must update these files:
+
+1. **`.node-version`** - Auto-detected by `nvm`, `fnm`, and other version managers
+2. **`.github/workflows/test.yml`** - Line 20: `node-version: '22'`
+3. **`Dockerfile`** - Lines 2 and 24: `FROM node:22-slim`
+
+Optional but recommended:
+4. **`package.json`** - Add `engines` field to document version requirement:
+   ```json
+   "engines": {
+     "node": ">=22.0.0"
+   }
+   ```
+
+### Using the Correct Node Version Locally
+
+This project uses `direnv` to automatically set the Node version from `.node-version`.
+
+When you `cd` into the project directory, direnv will:
+1. Read the Node version from `.node-version`
+2. Add the Homebrew Node installation to your PATH
+3. Show a message confirming which version is active
+
+If the required version isn't installed, direnv will show a warning with the install command.
+
+**Manual usage** (if you don't use direnv or need to override):
+
+```bash
+# With Homebrew (keg-only, not in PATH by default)
+/opt/homebrew/opt/node@22/bin/node --version
+/opt/homebrew/opt/node@22/bin/npm install
+
+# Or add to PATH temporarily
+export PATH="/opt/homebrew/opt/node@22/bin:$PATH"
+
+# With nvm (if installed)
+nvm use 22
+
+# With fnm (if installed)
+fnm use 22
+```
+
+### Why Node 22?
+
+- **LTS Status**: Long-term support until April 2027
+- **Native Modules**: Better compatibility with `better-sqlite3` and other C++ addons
+- **Consistency**: Matches production Docker environment
 
 ## Test Structure
 
