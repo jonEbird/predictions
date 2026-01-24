@@ -32,7 +32,7 @@ COPY package*.json ./
 # Add retry logic for npm bug: "Exit handler never called!"
 RUN for i in 1 2 3; do \
       echo "Production install attempt $i..."; \
-      npm ci --omit=dev --ignore-scripts 2>&1 | grep -v "^npm warn" || true; \
+      npm install --production --ignore-scripts 2>&1 | grep -v "^npm warn" || true; \
       if [ -f "node_modules/better-sqlite3/package.json" ]; then \
         echo "✓ Production dependencies installed successfully"; \
         break; \
