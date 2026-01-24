@@ -10,6 +10,8 @@ services:
     volumes:
       # Persist SQLite database
       - ./data:/app/data
+      # Persist user uploads (mugshots, group pictures, prizes)
+      - ./uploads:/app/uploads
     environment:
       - NODE_ENV=production
       - DATABASE_URL=file:/app/data/predictions.db
