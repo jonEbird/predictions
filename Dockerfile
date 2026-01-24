@@ -48,6 +48,10 @@ RUN for i in 1 2 3; do \
       fi; \
     done
 
+# Copy pre-built better-sqlite3 native bindings from builder
+# (--ignore-scripts above skips building native modules)
+COPY --from=builder /app/node_modules/better-sqlite3/build node_modules/better-sqlite3/build
+
 # Copy built app from builder
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package.json ./
