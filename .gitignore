@@ -54,3 +54,4 @@ uploads/mugshots/*
 uploads/groups/*
 uploads/prizes/*
 !uploads/**/.gitkeep
+MIGRATION_GUIDE.md
