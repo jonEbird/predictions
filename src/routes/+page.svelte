@@ -16,7 +16,7 @@
 		<div class="bg-white dark:bg-gray-800 shadow-xl rounded-lg p-8 border border-gray-200 dark:border-gray-700">
 			<div class="space-y-4">
 				<p class="text-gray-700 dark:text-gray-300 text-center">
-					Welcome! Please login or register to start making predictions.
+					Welcome! Please login to start making predictions.
 				</p>
 
 				<div class="flex flex-col gap-3">
@@ -25,12 +25,6 @@
 						class="w-full flex justify-center items-center px-4 py-3 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors"
 					>
 						Login
-					</a>
-					<a
-						href="/register"
-						class="w-full flex justify-center items-center px-4 py-3 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
-					>
-						Register
 					</a>
 				</div>
 			</div>

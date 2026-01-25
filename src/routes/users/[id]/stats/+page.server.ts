@@ -5,11 +5,6 @@ import { users, predictions, games, memberships } from '$lib/db/schema';
 import { eq, and, sql } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
-	// Require authentication
-	if (!locals.user) {
-		throw redirect(303, '/login');
-	}
-
 	const userId = parseInt(params.id, 10);
 	const groupId = parseInt(url.searchParams.get('groupId') || '0', 10);
 

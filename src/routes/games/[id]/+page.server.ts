@@ -9,11 +9,6 @@ import { predictions, games } from '$lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
-	// Require authentication
-	if (!locals.user) {
-		throw redirect(303, '/login');
-	}
-
 	const gameId = parseInt(params.id, 10);
 	const groupId = parseInt(url.searchParams.get('groupId') || '0', 10);
 
@@ -21,14 +16,16 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		throw error(400, 'Group ID is required');
 	}
 
-	// Check if user is a member of the group
-	const isMember = await isUserMemberOfGroup(locals.user.id, groupId);
-	if (!isMember) {
-		throw error(403, 'You are not a member of this group');
+	// For authenticated users, check if they're a member of the group
+	if (locals.user) {
+		const isMember = await isUserMemberOfGroup(locals.user.id, groupId);
+		if (!isMember) {
+			throw error(403, 'You are not a member of this group');
+		}
 	}
 
-	// Check if user is admin
-	const isAdmin = await isUserGroupAdmin(locals.user.id, groupId);
+	// Check if user is admin (only for authenticated users)
+	const isAdmin = locals.user ? await isUserGroupAdmin(locals.user.id, groupId) : false;
 
 	// Get game with all predictions
 	const gameData = await getGameWithPredictions(gameId, groupId);
@@ -37,14 +34,14 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		throw error(404, 'Game not found');
 	}
 
-	// Get user's prediction if it exists
-	const userPrediction = await getUserPrediction(locals.user.id, gameId, groupId);
+	// Get user's prediction if user is authenticated
+	const userPrediction = locals.user ? await getUserPrediction(locals.user.id, gameId, groupId) : null;
 
 	// Check if game has started
 	const gameStarted = await hasGameStarted(gameId);
 
-	// Check if user can predict
-	const canPredict = await canUserPredict(locals.user, gameData.game, groupId);
+	// Check if user can predict (only for authenticated users)
+	const canPredict = locals.user ? await canUserPredict(locals.user, gameData.game, groupId) : false;
 
 	// Get all group members and their prediction status
 	const allMembers = await getGroupMembers(groupId);

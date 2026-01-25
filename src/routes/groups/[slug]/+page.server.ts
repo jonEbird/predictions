@@ -3,11 +3,6 @@ import type { PageServerLoad } from './$types';
 import { getGroupWithGames, getGroupLeaderboard, getGroupSeasons, isUserMemberOfGroup } from '$lib/server/queries/groups';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
-	// Require authentication
-	if (!locals.user) {
-		throw redirect(303, '/login');
-	}
-
 	const { slug } = params;
 
 	// Get season from query params or use latest
@@ -32,10 +27,12 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		throw error(404, 'Group not found');
 	}
 
-	// Check if user is a member
-	const isMember = await isUserMemberOfGroup(locals.user.id, groupData.group.id);
-	if (!isMember) {
-		throw error(403, 'You are not a member of this group');
+	// For authenticated users, check if they're a member
+	if (locals.user) {
+		const isMember = await isUserMemberOfGroup(locals.user.id, groupData.group.id);
+		if (!isMember) {
+			throw error(403, 'You are not a member of this group');
+		}
 	}
 
 	// Get leaderboard
@@ -43,7 +40,10 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
 	// Calculate stats preview data
 	const currentLeader = leaderboard[0];
-	const userPosition = leaderboard.findIndex(entry => entry.user.id === locals.user!.id) + 1;
+	// Only calculate user position if user is logged in
+	const userPosition = locals.user
+		? leaderboard.findIndex(entry => entry.user.id === locals.user!.id) + 1
+		: 0;
 	const coffeeLeader = [...leaderboard].sort((a, b) => b.coffeeWins - a.coffeeWins)[0];
 
 	// Get all available seasons for this group

@@ -7,11 +7,6 @@ import { getGroupBySlugAndSeason, isUserMemberOfGroup } from '$lib/server/querie
 import { DEFAULT_GROUP_SLUG } from '$lib/config';
 
 export const load: PageServerLoad = async ({ locals, params, url }) => {
-	// Require authentication
-	if (!locals.user) {
-		throw redirect(303, '/login');
-	}
-
 	const season = parseInt(params.season, 10);
 	const groupIdParam = url.searchParams.get('groupId');
 
@@ -27,10 +22,12 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		throw error(404, 'Group not found');
 	}
 
-	// Check if user is a member
-	const isMember = await isUserMemberOfGroup(locals.user.id, groupId);
-	if (!isMember) {
-		throw error(403, 'You are not a member of this group');
+	// For authenticated users, check if they're a member
+	if (locals.user) {
+		const isMember = await isUserMemberOfGroup(locals.user.id, groupId);
+		if (!isMember) {
+			throw error(403, 'You are not a member of this group');
+		}
 	}
 
 	// Get all games for this group in this season
