@@ -68,17 +68,27 @@ describe('Homepage route', () => {
 		}
 	});
 
-	it('should return null user when not authenticated', async () => {
+	it('should redirect unauthenticated user to default group', async () => {
+		const { getGroupSeasons } = await import('$lib/server/queries/groups');
 		const { load } = await import('../routes/+page.server');
+
+		// Mock getGroupSeasons to return seasons
+		vi.mocked(getGroupSeasons).mockResolvedValue([
+			{ season: 2026, gameCount: 10 }
+		] as any);
 
 		const mockLocals = {
 			user: null
 		};
 
-		const result = await load({ locals: mockLocals } as any);
-
-		expect(result).toEqual({
-			user: null
-		});
+		try {
+			await load({ locals: mockLocals } as any);
+			// Should not reach here - should throw redirect
+			expect(true).toBe(false);
+		} catch (error: any) {
+			// SvelteKit redirect throws an error with status and location
+			expect(error.status).toBe(303);
+			expect(error.location).toBe('/groups/bucknuts?season=2026');
+		}
 	});
 });
