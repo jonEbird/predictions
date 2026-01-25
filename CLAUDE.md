@@ -7,6 +7,10 @@ This document contains guidelines for Claude when working on this repository.
 - **Do NOT include "Co-Authored-By: Claude" lines in commit messages**
 - Keep commit messages clear and concise
 - Focus on what changed and why
+- **ALWAYS use specific file paths with `git add`** - Never use `git add -A`, `git add .`, or wildcard patterns
+  - Good: `git add src/lib/db/index.ts vps/nginx/buckeyepredictions.conf`
+  - Bad: `git add -A`, `git add .`, `git add *.md`
+  - This prevents accidentally committing personal notes, build artifacts, or temporary files
 
 ## Development Workflow
 
