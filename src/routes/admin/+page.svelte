@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData, ActionData } from './$types';
 	import { enhance } from '$app/forms';
+	import { parseGameTimeET, formatGameTimeInput, formatET, easternAbbreviation } from '$lib/datetime';
 
 	export let data: PageData;
 	export let form: ActionData;
@@ -35,11 +36,29 @@
 			id: game.id,
 			homeTeam: game.homeTeam,
 			awayTeam: game.awayTeam,
-			gameTime: new Date(game.gameTime).toISOString().slice(0, 16),
+			gameTime: formatGameTimeInput(game.gameTime),
 			status: game.status,
 			homeScore: game.homeScore?.toString() || '',
 			awayScore: game.awayScore?.toString() || ''
 		};
+	}
+
+	// Live feedback for the typed game time. Uses the same parser the server does,
+	// so what the preview shows is exactly what gets saved.
+	$: newGamePreview = parseGameTimeET(newGame.gameTime, newGame.season);
+	$: editGamePreview = parseGameTimeET(editGame.gameTime, data.group.season);
+
+	function previewText(date: Date | undefined) {
+		if (!date) return '';
+		return `${formatET(date, {
+			weekday: 'long',
+			month: 'long',
+			day: 'numeric',
+			year: 'numeric',
+			hour: 'numeric',
+			minute: '2-digit',
+			hour12: true
+		})} ${easternAbbreviation(date)}`;
 	}
 
 	function cancelEdit() {
@@ -47,14 +66,15 @@
 	}
 
 	function formatDateTime(date: Date) {
-		return new Date(date).toLocaleString('en-US', {
+		return `${formatET(date, {
+			weekday: 'short',
 			month: 'short',
 			day: 'numeric',
 			year: 'numeric',
 			hour: 'numeric',
 			minute: '2-digit',
 			hour12: true
-		});
+		})} ${easternAbbreviation(date)}`;
 	}
 
 	function getStatusBadgeClass(status: string | null) {
@@ -188,16 +208,32 @@
 
 					<div>
 						<label for="gameTime" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-							Game Time
+							Game Time <span class="font-normal text-gray-500 dark:text-gray-400">(Eastern)</span>
 						</label>
 						<input
-							type="datetime-local"
+							type="text"
 							id="gameTime"
 							name="gameTime"
 							bind:value={newGame.gameTime}
 							required
-							class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
+							autocomplete="off"
+							placeholder="Sep 12 7:30 PM"
+							class="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100 {newGame.gameTime &&
+							newGamePreview.error
+								? 'border-red-400 dark:border-red-500'
+								: 'border-gray-300 dark:border-gray-600'}"
 						/>
+						{#if !newGame.gameTime}
+							<p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+								Try “Sep 12 7:30 PM”, “9/12 3:30pm”, or “Saturday September 12 12:00 PM”
+							</p>
+						{:else if newGamePreview.error}
+							<p class="mt-1 text-xs text-red-600 dark:text-red-400">{newGamePreview.error}</p>
+						{:else}
+							<p class="mt-1 text-xs text-green-700 dark:text-green-400">
+								✓ {previewText(newGamePreview.date)}
+							</p>
+						{/if}
 					</div>
 
 					<div>
@@ -254,11 +290,12 @@
 
 									<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
 										<div>
-											<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+											<label for="editHomeTeam-{game.id}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 												Home Team
 											</label>
 											<input
 												type="text"
+												id="editHomeTeam-{game.id}"
 												name="homeTeam"
 												bind:value={editGame.homeTeam}
 												required
@@ -267,11 +304,12 @@
 										</div>
 
 										<div>
-											<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+											<label for="editAwayTeam-{game.id}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 												Away Team
 											</label>
 											<input
 												type="text"
+												id="editAwayTeam-{game.id}"
 												name="awayTeam"
 												bind:value={editGame.awayTeam}
 												required
@@ -280,23 +318,39 @@
 										</div>
 
 										<div>
-											<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-												Game Time
+											<label for="editGameTime-{game.id}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+												Game Time <span class="font-normal text-gray-500 dark:text-gray-400">(Eastern)</span>
 											</label>
 											<input
-												type="datetime-local"
+												type="text"
+												id="editGameTime-{game.id}"
 												name="gameTime"
 												bind:value={editGame.gameTime}
 												required
-												class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md dark:bg-gray-700 dark:text-gray-100"
+												autocomplete="off"
+												placeholder="Sep 12 7:30 PM"
+												class="w-full px-3 py-2 border rounded-md dark:bg-gray-700 dark:text-gray-100 {editGame.gameTime &&
+												editGamePreview.error
+													? 'border-red-400 dark:border-red-500'
+													: 'border-gray-300 dark:border-gray-600'}"
 											/>
+											{#if editGamePreview.error}
+												<p class="mt-1 text-xs text-red-600 dark:text-red-400">
+													{editGamePreview.error}
+												</p>
+											{:else}
+												<p class="mt-1 text-xs text-green-700 dark:text-green-400">
+													✓ {previewText(editGamePreview.date)}
+												</p>
+											{/if}
 										</div>
 
 										<div>
-											<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+											<label for="editStatus-{game.id}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 												Status
 											</label>
 											<select
+												id="editStatus-{game.id}"
 												name="status"
 												bind:value={editGame.status}
 												required
@@ -310,11 +364,12 @@
 										</div>
 
 										<div>
-											<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+											<label for="editHomeScore-{game.id}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 												Home Score
 											</label>
 											<input
 												type="number"
+												id="editHomeScore-{game.id}"
 												name="homeScore"
 												bind:value={editGame.homeScore}
 												placeholder="Leave empty if not finished"
@@ -323,11 +378,12 @@
 										</div>
 
 										<div>
-											<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+											<label for="editAwayScore-{game.id}" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 												Away Score
 											</label>
 											<input
 												type="number"
+												id="editAwayScore-{game.id}"
 												name="awayScore"
 												bind:value={editGame.awayScore}
 												placeholder="Leave empty if not finished"

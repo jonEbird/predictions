@@ -4,6 +4,7 @@ import { eq, and, gte, lte, isNull } from 'drizzle-orm';
 import { sendBulkEmail, createEmailTemplate } from './email';
 import { sendPersonalizedSMS } from './sms';
 import { DEFAULT_GROUP_SLUG } from '$lib/config';
+import { formatET, easternAbbreviation } from '$lib/datetime';
 
 /**
  * Get upcoming games that need reminders (games in the next 48 hours without predictions)
@@ -149,14 +150,14 @@ export async function sendGameReminders(): Promise<void> {
 			const reminderMsg = getReminderMessage(urgency);
 
 			// Format game time
-			const gameTimeStr = game.gameTime.toLocaleString('en-US', {
+			const gameTimeStr = `${formatET(game.gameTime, {
 				weekday: 'long',
 				month: 'short',
 				day: 'numeric',
 				hour: 'numeric',
 				minute: '2-digit',
 				hour12: true
-			});
+			})} ${easternAbbreviation(game.gameTime)}`;
 
 			// Send emails
 			const emailRecipients = membersWithoutPredictions

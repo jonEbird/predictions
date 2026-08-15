@@ -2,6 +2,7 @@
 	import type { Game, User } from '$lib/db/schema';
 	import GameStatus from './GameStatus.svelte';
 	import UserAvatar from './UserAvatar.svelte';
+	import { formatET, easternAbbreviation } from '$lib/datetime';
 
 	export let game: Game;
 	export let predictionCount: number = 0;
@@ -11,14 +12,13 @@
 
 	function formatGameTime(timestamp: Date | null) {
 		if (!timestamp) return '';
-		const date = new Date(timestamp);
-		return date.toLocaleString('en-US', {
+		return `${formatET(timestamp, {
 			weekday: 'short',
 			month: 'short',
 			day: 'numeric',
 			hour: 'numeric',
 			minute: '2-digit'
-		});
+		})} ${easternAbbreviation(timestamp)}`;
 	}
 
 	function getScoreDisplay() {

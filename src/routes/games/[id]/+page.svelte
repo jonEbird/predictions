@@ -5,6 +5,7 @@
 	import PredictionForm from '$lib/components/PredictionForm.svelte';
 	import RankBadge from '$lib/components/RankBadge.svelte';
 	import UserAvatar from '$lib/components/UserAvatar.svelte';
+	import { formatET, easternAbbreviation } from '$lib/datetime';
 
 	export let data: PageData;
 	export let form: any;
@@ -42,15 +43,14 @@
 	}
 
 	function formatGameTime(timestamp: Date) {
-		const date = new Date(timestamp);
-		return date.toLocaleString('en-US', {
+		return `${formatET(timestamp, {
 			weekday: 'long',
 			month: 'long',
 			day: 'numeric',
 			year: 'numeric',
 			hour: 'numeric',
 			minute: '2-digit'
-		});
+		})} ${easternAbbreviation(timestamp)}`;
 	}
 
 	function getScoreDifference(homeScore: number, awayScore: number): string {

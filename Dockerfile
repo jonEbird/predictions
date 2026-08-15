@@ -4,7 +4,8 @@ FROM node:22-slim AS builder
 WORKDIR /app
 
 # Copy package files and config files needed for sync
-COPY package*.json ./
+# .npmrc pins the public npm registry so builds never depend on a private mirror.
+COPY package*.json .npmrc ./
 COPY .env.example ./.env
 COPY svelte.config.js ./
 COPY vite.config.ts ./
@@ -26,7 +27,7 @@ FROM node:22-slim
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json .npmrc ./
 
 # Install production dependencies only (skip postinstall scripts)
 # Add retry logic for npm bug: "Exit handler never called!"
@@ -64,6 +65,10 @@ EXPOSE 3000
 
 # Set environment to production
 ENV NODE_ENV=production
+
+# Game times are anchored to Eastern in code, but matching the container clock to
+# Eastern keeps logs and any un-anchored date handling consistent with the site.
+ENV TZ=America/New_York
 
 # Start the app
 CMD ["node", "build"]

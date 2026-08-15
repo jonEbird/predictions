@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Game } from '$lib/db/schema';
 	import { enhance } from '$app/forms';
+	import { formatET, easternAbbreviation } from '$lib/datetime';
 
 	export let game: Game;
 	export let groupId: number;
@@ -13,14 +14,13 @@
 	let isSubmitting = false;
 
 	function formatGameTime(timestamp: Date) {
-		const date = new Date(timestamp);
-		return date.toLocaleString('en-US', {
+		return `${formatET(timestamp, {
 			weekday: 'long',
 			month: 'long',
 			day: 'numeric',
 			hour: 'numeric',
 			minute: '2-digit'
-		});
+		})} ${easternAbbreviation(timestamp)}`;
 	}
 </script>
 

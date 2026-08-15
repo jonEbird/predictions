@@ -2,11 +2,12 @@
 	import type { PageData } from './$types';
 	import UserAvatar from '$lib/components/UserAvatar.svelte';
 	import RankBadge from '$lib/components/RankBadge.svelte';
+	import { formatET } from '$lib/datetime';
 
 	export let data: PageData;
 
 	function formatDate(date: Date) {
-		return new Date(date).toLocaleDateString('en-US', {
+		return formatET(date, {
 			month: 'short',
 			day: 'numeric',
 			year: 'numeric'

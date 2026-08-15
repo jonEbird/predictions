@@ -14,14 +14,19 @@
 	$: recentSeasons = data.availableSeasons.slice(0, maxVisibleSeasons);
 	$: olderSeasons = data.availableSeasons.slice(maxVisibleSeasons);
 
-	// Separate games by status and time
-	$: upcomingGames = data.games.filter((g) => {
-		const gameTime = new Date(g.game.gameTime);
-		const now = new Date();
-		return g.game.status === 'scheduled' && gameTime > now;
-	});
+	// Separate games by status and time.
+	// data.games arrives newest-first; upcoming games read better soonest-first.
+	$: upcomingGames = data.games
+		.filter((g) => {
+			const gameTime = new Date(g.game.gameTime);
+			const now = new Date();
+			return g.game.status === 'scheduled' && gameTime > now;
+		})
+		.sort((a, b) => new Date(a.game.gameTime).getTime() - new Date(b.game.gameTime).getTime());
 
-	$: liveGames = data.games.filter((g) => g.game.status === 'live');
+	$: liveGames = data.games
+		.filter((g) => g.game.status === 'live')
+		.sort((a, b) => new Date(a.game.gameTime).getTime() - new Date(b.game.gameTime).getTime());
 
 	$: finishedGames = data.games.filter((g) => {
 		const gameTime = new Date(g.game.gameTime);

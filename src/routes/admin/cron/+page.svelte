@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData, ActionData } from './$types';
 	import { enhance } from '$app/forms';
+	import { formatET, easternAbbreviation } from '$lib/datetime';
 
 	export let data: PageData;
 	export let form: ActionData;
@@ -39,13 +40,13 @@
 
 	function formatDateTime(date: Date | null) {
 		if (!date) return 'Never';
-		return new Date(date).toLocaleString('en-US', {
+		return `${formatET(date, {
 			month: 'short',
 			day: 'numeric',
 			hour: 'numeric',
 			minute: '2-digit',
 			hour12: true
-		});
+		})} ${easternAbbreviation(date)}`;
 	}
 
 	function getStatusBadgeClass(job: any) {
@@ -158,11 +159,12 @@
 						<option value="game_reminders">Game Reminders</option>
 						<option value="prediction_reminders">Prediction Deadline Reminders</option>
 					</select>
-				<div class="mt-2 p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs">
-					<p class="font-semibold text-gray-700 dark:text-gray-300 mb-1">Job Type Descriptions:</p>
-					<div class="space-y-1 text-gray-600 dark:text-gray-400">
-						<p><strong>Game Reminders:</strong> Gentle initial notifications for games in the next 48 hours. Run once daily (e.g., <code>0 12 * * *</code> for noon).</p>
-						<p><strong>Prediction Deadline Reminders:</strong> Escalating urgent reminders for games today or tomorrow. Run multiple times daily (e.g., <code>0 */3 * * *</code> every 3 hours).</p>
+					<div class="mt-2 p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs">
+						<p class="font-semibold text-gray-700 dark:text-gray-300 mb-1">Job Type Descriptions:</p>
+						<div class="space-y-1 text-gray-600 dark:text-gray-400">
+							<p><strong>Game Reminders:</strong> Gentle initial notifications for games in the next 48 hours. Run once daily (e.g., <code>0 12 * * *</code> for noon).</p>
+							<p><strong>Prediction Deadline Reminders:</strong> Escalating urgent reminders for games today or tomorrow. Run multiple times daily (e.g., <code>0 */3 * * *</code> every 3 hours).</p>
+						</div>
 					</div>
 				</div>
 

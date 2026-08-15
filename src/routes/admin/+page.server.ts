@@ -8,6 +8,7 @@ import { DEFAULT_GROUP_SLUG } from '$lib/config';
 import { sendBulkSMS } from '$lib/server/sms';
 import { sendBulkEmail, createEmailTemplate } from '$lib/server/email';
 import { sendGameResultNotifications } from '$lib/server/game-results';
+import { parseGameTimeET } from '$lib/datetime';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	// Require authentication
@@ -75,6 +76,12 @@ export const actions: Actions = {
 
 		if (!homeTeam || !awayTeam || !gameTime || !season) {
 			return fail(400, { message: 'All fields are required' });
+		}
+
+		// Interpret the typed time as Eastern, not as the server's timezone.
+		const parsedGameTime = parseGameTimeET(gameTime, season);
+		if (!parsedGameTime.ok) {
+			return fail(400, { message: parsedGameTime.error });
 		}
 
 		try {
@@ -151,7 +158,7 @@ export const actions: Actions = {
 				.values({
 					homeTeam,
 					awayTeam,
-					gameTime: new Date(gameTime),
+					gameTime: parsedGameTime.date,
 					season,
 					status: 'scheduled'
 				})
@@ -199,6 +206,12 @@ export const actions: Actions = {
 
 			const previousStatus = game[0].status;
 
+			// Interpret the typed time as Eastern, defaulting an omitted year to the game's season.
+			const parsedGameTime = parseGameTimeET(gameTime, game[0].season);
+			if (!parsedGameTime.ok) {
+				return fail(400, { message: parsedGameTime.error });
+			}
+
 			// Verify admin access
 			const group = await getGroupBySlugAndSeason(DEFAULT_GROUP_SLUG, game[0].season);
 			if (!group) {
@@ -216,7 +229,7 @@ export const actions: Actions = {
 				.set({
 					homeTeam,
 					awayTeam,
-					gameTime: new Date(gameTime),
+					gameTime: parsedGameTime.date,
 					status,
 					homeScore: homeScore ? parseInt(homeScore) : null,
 					awayScore: awayScore ? parseInt(awayScore) : null,

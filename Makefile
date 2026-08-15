@@ -1,5 +1,11 @@
 .PHONY: help setup test run clean check coverage
 
+# Use the Node version pinned in .node-version, not whatever is on the ambient PATH.
+# Mismatched Node versions break native modules like better-sqlite3.
+NODE_VERSION := $(shell tr -d '[:space:]' < .node-version)
+NODE_BIN := /opt/homebrew/opt/node@$(NODE_VERSION)/bin
+export PATH := $(NODE_BIN):$(PATH)
+
 # Default target - show help
 help:
 	@echo "Available targets:"
