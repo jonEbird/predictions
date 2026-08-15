@@ -12,8 +12,17 @@
 		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 			<div class="flex justify-between h-16">
 				<div class="flex items-center gap-6">
-					<a href="/" class="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent hover:scale-105 transition-transform">
-						{SITE_NAME}
+					<a href="/" class="flex items-center gap-3 hover:scale-105 transition-transform">
+						<img
+							src="/bucknuts-mark.png"
+							alt=""
+							width="36"
+							height="36"
+							class="w-9 h-9 rounded-lg shadow-sm"
+						/>
+						<span class="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+							{SITE_NAME}
+						</span>
 					</a>
 					{#if data.user && data.isAdmin}
 						<a

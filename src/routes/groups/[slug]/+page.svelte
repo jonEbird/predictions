@@ -105,6 +105,15 @@
 					alt={data.group.name}
 					class="w-28 h-28 object-cover rounded-xl shadow-lg ring-4 ring-white dark:ring-gray-800"
 				/>
+			{:else}
+				<!-- Brand badge fills this slot for groups without a custom picture -->
+				<img
+					src="/bucknuts-badge.webp"
+					alt=""
+					width="600"
+					height="459"
+					class="hidden sm:block w-44 lg:w-52 h-auto drop-shadow-md"
+				/>
 			{/if}
 		</div>
 	</div>
