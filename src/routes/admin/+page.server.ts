@@ -9,7 +9,7 @@ import { sendBulkSMS } from '$lib/server/sms';
 import { sendPersonalizedEmail, createEmailTemplate } from '$lib/server/email';
 import { sendGameResultNotifications } from '$lib/server/game-results';
 import { parseGameTimeET } from '$lib/datetime';
-import { renderTemplate } from '$lib/templating';
+import { renderTemplate, renderMessageHtml } from '$lib/templating';
 
 /**
  * The soonest scheduled game still open for predictions, for {game_url}.
@@ -376,18 +376,28 @@ export const actions: Actions = {
 				? `${url.origin}/games/${nextGame.id}?groupId=${group.id}`
 				: `${url.origin}/groups/${group.slug}`;
 
+			// {opponent} is whichever side of the next game isn't our own team. The
+			// fallback still reads in a sentence when nothing is scheduled.
+			const opponent = nextGame
+				? nextGame.homeTeam === group.homeTeam
+					? nextGame.awayTeam
+					: nextGame.homeTeam
+				: 'our next opponent';
+
 			// Render per recipient so {name}-style placeholders resolve individually.
 			const personalized = emailRecipients.map((m) => {
 				const vars = {
 					name: m.user.name,
 					nickname: m.user.nickname || m.user.name.split(' ')[0],
+					opponent,
 					game_url: gameUrl,
 					site_url: url.origin
 				};
 
 				const { html, text } = createEmailTemplate({
 					title: renderTemplate(subject, vars),
-					body: `<p>${renderTemplate(message, vars).replace(/\n/g, '<br>')}</p>`,
+					body: renderMessageHtml(message, vars),
+					text: renderTemplate(message, vars, { escape: false }),
 					footerText: `${group.name} | Buckeye Predictions`
 				});
 

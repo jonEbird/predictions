@@ -292,8 +292,10 @@ export function createEmailTemplate(options: {
 	title: string;
 	body: string;
 	footerText?: string;
+	/** Plain-text body. Falls back to stripping tags from `body` when absent. */
+	text?: string;
 }): { html: string; text: string } {
-	const { title, body, footerText = 'Buckeye Predictions' } = options;
+	const { title, body, footerText = 'Buckeye Predictions', text: plainBody } = options;
 
 	const html = `
 <!DOCTYPE html>
@@ -324,6 +326,12 @@ export function createEmailTemplate(options: {
 			padding-bottom: 10px;
 			margin-top: 0;
 		}
+		/* Keep links blue in every state -- without this a followed link goes
+		   purple in clients that apply their own :visited rule. */
+		a, a:link, a:visited, a:hover, a:active {
+			color: #1d4ed8;
+			text-decoration: underline;
+		}
 		.footer {
 			margin-top: 30px;
 			padding-top: 20px;
@@ -351,7 +359,7 @@ export function createEmailTemplate(options: {
 ${title}
 ${'='.repeat(title.length)}
 
-${body.replace(/<[^>]*>/g, '').replace(/\n{3,}/g, '\n\n')}
+${plainBody ?? body.replace(/<[^>]*>/g, '').replace(/\n{3,}/g, '\n\n')}
 
 ---
 ${footerText}

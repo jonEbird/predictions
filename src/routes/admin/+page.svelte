@@ -4,6 +4,7 @@
 	import { parseGameTimeET, formatGameTimeInput, formatET, easternAbbreviation } from '$lib/datetime';
 	import {
 		renderTemplate,
+		renderMessageHtml,
 		unknownPlaceholders,
 		TEMPLATE_PLACEHOLDERS
 	} from '$lib/templating';
@@ -18,15 +19,33 @@
 
 	// Live placeholder preview for the email composer. Rendered against the signed-in
 	// admin so the sample values are real, using the same renderer the server uses.
+	let emailSubject = '';
 	let emailMessage = '';
+
+	// Mirrors the server's {opponent}: whichever side of the next game isn't us.
+	$: nextUpcomingGame = data.games
+		.filter((g) => g.status === 'scheduled' && new Date(g.gameTime) > new Date())
+		.sort((a, b) => new Date(a.gameTime).getTime() - new Date(b.gameTime).getTime())[0];
+	$: nextOpponent = nextUpcomingGame
+		? nextUpcomingGame.homeTeam === data.group.homeTeam
+			? nextUpcomingGame.awayTeam
+			: nextUpcomingGame.homeTeam
+		: 'our next opponent';
 	$: previewVars = {
 		name: data.user?.name ?? 'Jon Miller',
 		nickname: data.user?.nickname || (data.user?.name ?? 'Jon').split(' ')[0],
+		opponent: nextOpponent,
 		game_url: `https://buckeyepredictions.com/games/…?groupId=${data.group.id}`,
 		site_url: 'https://buckeyepredictions.com'
 	};
-	$: emailPreview = renderTemplate(emailMessage, previewVars, { escape: false });
-	$: emailUnknownPlaceholders = unknownPlaceholders(emailMessage);
+	// Preview the HTML body, since that is what recipients see; the text/plain
+	// alternative part is a fallback we don't need to eyeball while composing.
+	$: emailPreviewHtml = renderMessageHtml(emailMessage, previewVars);
+	$: emailSubjectPreview = renderTemplate(emailSubject, previewVars, { escape: false });
+	// Warn about typos in either field, not just the body.
+	$: emailUnknownPlaceholders = [
+		...new Set([...unknownPlaceholders(emailSubject), ...unknownPlaceholders(emailMessage)])
+	];
 
 	// Form state for creating games
 	let newGame = {
@@ -480,14 +499,20 @@
 			>
 				<div class="space-y-4">
 					<div>
-						<label for="emailSubject" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+						<label for="subjectLine" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 							Subject
 						</label>
+						<!-- id deliberately avoids the word "email": Safari's AutoFill scans
+						     id/name for contact hints and offered addresses for "emailSubject". -->
 						<input
 							type="text"
-							id="emailSubject"
+							id="subjectLine"
 							name="subject"
 							required
+							bind:value={emailSubject}
+							autocomplete="off"
+							autocapitalize="sentences"
+							spellcheck="true"
 							class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
 						/>
 					</div>
@@ -501,6 +526,7 @@
 							name="message"
 							rows="6"
 							required
+							spellcheck="true"
 							bind:value={emailMessage}
 							class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
 						></textarea>
@@ -508,14 +534,20 @@
 						<div class="mt-2 text-xs text-gray-600 dark:text-gray-400">
 							<span class="font-semibold">Placeholders</span> — each recipient gets their own values:
 							<span class="inline-flex flex-wrap gap-x-1 gap-y-1 mt-1">
-								{#each TEMPLATE_PLACEHOLDERS as placeholder, i}
+								{#each TEMPLATE_PLACEHOLDERS as placeholder}
 									<span class="whitespace-nowrap">
 										<code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-900 rounded">
 											{'{'}{placeholder.key}{'}'}
 										</code>
-										→ {placeholder.describes}{i < TEMPLATE_PLACEHOLDERS.length - 1 ? ';' : ''}
+										→ {placeholder.describes};
 									</span>
 								{/each}
+								<span class="whitespace-nowrap">
+									<code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-900 rounded">
+										{'{'}game_url|pick against {'{'}opponent{'}'}{'}'}
+									</code>
+									→ link with your own wording, placeholders may nest
+								</span>
 							</span>
 						</div>
 
@@ -526,12 +558,25 @@
 							</p>
 						{/if}
 
-						{#if emailMessage.trim()}
-							<div class="mt-2 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs">
-								<div class="font-semibold text-gray-700 dark:text-gray-300 mb-1">
-									Preview as {previewVars.name}:
+						{#if emailSubject.trim() || emailMessage.trim()}
+							<div class="mt-2 border border-gray-200 dark:border-gray-700 rounded overflow-hidden">
+								<div
+									class="px-3 py-1.5 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-700 dark:text-gray-300"
+								>
+									Preview as {previewVars.name}
 								</div>
-								<div class="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{emailPreview}</div>
+								{#if emailSubject.trim()}
+									<div
+										class="px-4 py-2 bg-white border-b border-gray-100 text-sm font-semibold text-gray-900"
+									>
+										{emailSubjectPreview}
+									</div>
+								{/if}
+								<!-- Safe to use @html: renderMessageHtml escapes the admin's text
+								     first, so every tag in its output is one we generated. -->
+								<div class="px-4 py-3 bg-white text-sm text-gray-800 leading-relaxed">
+									{@html emailPreviewHtml}
+								</div>
 							</div>
 						{/if}
 					</div>
@@ -595,6 +640,7 @@
 							rows="4"
 							required
 							maxlength="160"
+							spellcheck="true"
 							class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
 						></textarea>
 						<p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
