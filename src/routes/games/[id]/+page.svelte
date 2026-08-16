@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { PageData } from './$types';
 	import { enhance } from '$app/forms';
+	import { page } from '$app/stores';
 	import GameStatus from '$lib/components/GameStatus.svelte';
 	import PredictionForm from '$lib/components/PredictionForm.svelte';
 	import RankBadge from '$lib/components/RankBadge.svelte';
@@ -280,6 +281,22 @@
 							</div>
 						</div>
 					</div>
+				</div>
+			{:else if !data.gameStarted && !data.user}
+				<!-- Anonymous visitor following a direct link: give them a way in -->
+				<div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 text-center">
+					<h3 class="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+						Make your pick
+					</h3>
+					<p class="text-blue-800 dark:text-blue-200 mb-4">
+						Log in to predict the score for this game.
+					</p>
+					<a
+						href="/login?redirectTo={encodeURIComponent($page.url.pathname + $page.url.search)}"
+						class="inline-block px-5 py-2.5 font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-colors"
+					>
+						Log in to predict
+					</a>
 				</div>
 			{/if}
 

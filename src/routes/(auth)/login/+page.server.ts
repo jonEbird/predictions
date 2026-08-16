@@ -39,6 +39,12 @@ export const actions: Actions = {
 			.set({ lastLoginAt: new Date() })
 			.where(eq(users.id, user.id));
 
-		throw redirect(303, '/');
+		// Return them to where they were headed, so a deep link into a game's
+		// prediction page survives the login detour. Only same-site paths are
+		// honoured, so ?redirectTo= can't be used to bounce users off-site.
+		const requested = event.url.searchParams.get('redirectTo');
+		const target = requested && /^\/(?!\/)/.test(requested) ? requested : '/';
+
+		throw redirect(303, target);
 	}
 };
