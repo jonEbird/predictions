@@ -36,6 +36,18 @@
 		return `${game.homeTeam} vs ${game.awayTeam}`;
 	}
 
+	// Our own team is a constant across the schedule, so labelling games with it says
+	// nothing. Show who we played instead, with "@" marking away games.
+	function opponentLabel(homeTeam: string, awayTeam: string) {
+		const ourTeam = data.group.homeTeam;
+		if (!ourTeam) return awayTeam;
+		return homeTeam === ourTeam ? awayTeam : `@ ${homeTeam}`;
+	}
+
+	function truncate(label: string, max = 11) {
+		return label.length > max ? `${label.slice(0, max - 1)}…` : label;
+	}
+
 	function formatDate(date: Date) {
 		return formatET(date, {
 			month: 'short',
@@ -43,34 +55,28 @@
 		});
 	}
 
-	// Group game performance by user for chart
-	$: userPerformanceMap = data.gamePerformance.reduce((acc, perf) => {
-		if (!acc[perf.userId]) {
-			acc[perf.userId] = {
-				name: perf.userName,
-				data: []
-			};
-		}
-		acc[perf.userId].data.push({
-			gameId: perf.gameId,
-			gameLabel: `${perf.homeTeam} vs ${perf.awayTeam}`,
-			gameTime: perf.gameTime,
-			delta: perf.delta
-		});
-		return acc;
-	}, {} as Record<number, { name: string; data: Array<{ gameId: number; gameLabel: string; gameTime: Date; delta: number | null }> }>);
-
-	$: userPerformanceArray = Object.values(userPerformanceMap);
-
 	// Get unique games for x-axis
 	$: uniqueGames = [...new Set(data.gamePerformance.map(p => p.gameId))].map(gameId => {
 		const perf = data.gamePerformance.find(p => p.gameId === gameId)!;
 		return {
 			id: gameId,
-			label: `${perf.homeTeam} vs ${perf.awayTeam}`,
+			label: opponentLabel(perf.homeTeam, perf.awayTeam),
+			fullLabel: `${perf.homeTeam} vs ${perf.awayTeam}`,
 			time: perf.gameTime
 		};
 	}).sort((a, b) => new Date(a.time).getTime() - new Date(b.time).getTime());
+
+	// Group game performance by user, keyed by game so a missed prediction leaves a
+	// gap at the right x position instead of shifting every later point left.
+	$: userPerformanceMap = data.gamePerformance.reduce((acc, perf) => {
+		if (!acc[perf.userId]) {
+			acc[perf.userId] = { id: perf.userId, name: perf.userName, byGame: new Map() };
+		}
+		acc[perf.userId].byGame.set(perf.gameId, perf.delta);
+		return acc;
+	}, {} as Record<number, { id: number; name: string; byGame: Map<number, number | null> }>);
+
+	$: userPerformanceArray = Object.values(userPerformanceMap);
 
 	// Color palette for users
 	const colors = [
@@ -84,6 +90,70 @@
 		'#F97316', // orange
 		'#14B8A6'  // teal
 	];
+
+	// --- chart geometry ---
+	const PLOT = { left: 50, right: 950, top: 20, bottom: 350 };
+
+	// Scale to the data so high deltas aren't clipped off the top of the plot.
+	$: maxDelta = Math.max(
+		10,
+		...data.gamePerformance.map((p) => p.delta ?? 0)
+	);
+	$: yTop = Math.ceil(maxDelta / 10) * 10;
+	$: yTicks = Array.from({ length: yTop / 10 + 1 }, (_, i) => i * 10);
+
+	function xFor(index: number, total: number) {
+		return PLOT.left + (index / (total - 1 || 1)) * (PLOT.right - PLOT.left);
+	}
+	$: yFor = (delta: number) =>
+		PLOT.bottom - (delta / yTop) * (PLOT.bottom - PLOT.top);
+
+	$: series = userPerformanceArray.map((user, index) => ({
+		id: user.id,
+		name: user.name,
+		color: colors[index % colors.length],
+		points: uniqueGames
+			.map((game, i) => {
+				const delta = user.byGame.get(game.id);
+				if (delta === undefined || delta === null) return null;
+				return { x: xFor(i, uniqueGames.length), y: yFor(delta), delta, gameIndex: i };
+			})
+			.filter((p): p is { x: number; y: number; delta: number; gameIndex: number } => p !== null)
+	}));
+
+	// --- interaction ---
+	// 9 overlapping lines can't be told apart by color alone, so emphasis is how a
+	// reader isolates one: hover or focus previews, click pins it.
+	let hoveredUserId: number | null = null;
+	let pinnedUserId: number | null = null;
+	let hoveredGameIndex: number | null = null;
+
+	$: activeUserId = hoveredUserId ?? pinnedUserId;
+
+	function togglePinned(userId: number) {
+		pinnedUserId = pinnedUserId === userId ? null : userId;
+	}
+
+	// Declared reactively, not as a plain function: Svelte only tracks dependencies it
+	// can see in the template expression, so a `function` body reading activeUserId
+	// would never trigger a re-render.
+	$: isDimmed = (userId: number) => activeUserId !== null && activeUserId !== userId;
+
+	// Tooltip rows for the hovered game column: every series at that x, best first.
+	$: tooltipRows =
+		hoveredGameIndex === null
+			? []
+			: series
+					.map((s) => ({
+						name: s.name,
+						color: s.color,
+						id: s.id,
+						delta: s.points.find((p) => p.gameIndex === hoveredGameIndex)?.delta ?? null
+					}))
+					.filter((r) => r.delta !== null)
+					.sort((a, b) => (a.delta as number) - (b.delta as number));
+
+	$: tooltipGame = hoveredGameIndex === null ? null : uniqueGames[hoveredGameIndex];
 </script>
 
 <svelte:head>
@@ -167,88 +237,221 @@
 				Prediction Performance
 			</h2>
 			<p class="text-sm text-gray-600 dark:text-gray-400 mb-6">
-				Game-by-game delta over the season
+				Game-by-game delta over the season — lower is better. Hover a game for all
+				scores; hover or click a name to isolate that player.
 			</p>
 
 			<div class="overflow-x-auto">
 				<div class="min-w-[800px]" style="height: 400px; position: relative;">
 					<!-- Simple line chart -->
-					<svg width="100%" height="100%" viewBox="0 0 1000 400" class="border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900">
+					<svg
+						width="100%"
+						height="100%"
+						viewBox="0 0 1000 400"
+						class="border border-gray-200 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-900"
+						role="img"
+						aria-label="Game-by-game prediction delta for each player. Full values are in the table below."
+						on:pointerleave={() => (hoveredGameIndex = null)}
+					>
 						<!-- Grid lines -->
-						{#each [0, 10, 20, 30, 40, 50] as y}
+						{#each yTicks as tick}
 							<line
-								x1="50"
-								y1={350 - y * 6}
-								x2="950"
-								y2={350 - y * 6}
+								x1={PLOT.left}
+								y1={yFor(tick)}
+								x2={PLOT.right}
+								y2={yFor(tick)}
 								stroke="currentColor"
 								stroke-width="1"
 								class="text-gray-300 dark:text-gray-700"
 								stroke-dasharray="4"
 							/>
 							<text
-								x="35"
-								y={355 - y * 6}
+								x={PLOT.left - 15}
+								y={yFor(tick) + 4}
 								text-anchor="end"
 								class="text-xs fill-current text-gray-600 dark:text-gray-400"
 							>
-								{y}
+								{tick}
 							</text>
 						{/each}
+
+						<!-- Crosshair for the hovered game -->
+						{#if hoveredGameIndex !== null}
+							<line
+								x1={xFor(hoveredGameIndex, uniqueGames.length)}
+								y1={PLOT.top}
+								x2={xFor(hoveredGameIndex, uniqueGames.length)}
+								y2={PLOT.bottom}
+								stroke="currentColor"
+								stroke-width="1"
+								class="text-gray-400 dark:text-gray-500"
+							/>
+						{/if}
 
 						<!-- Plot lines for each user -->
-						{#each userPerformanceArray as userPerf, userIndex}
-							{@const color = colors[userIndex % colors.length]}
-							{@const points = userPerf.data
-								.map((d, i) => {
-									const x = 50 + (i / (uniqueGames.length - 1 || 1)) * 900;
-									const y = 350 - ((d.delta ?? 0) * 6);
-									return `${x},${y}`;
-								})
-								.join(' ')}
+						{#each series as s}
+							<g
+								opacity={isDimmed(s.id) ? 0.12 : 1}
+								style="transition: opacity 150ms;"
+							>
+								<polyline
+									points={s.points.map((p) => `${p.x},${p.y}`).join(' ')}
+									fill="none"
+									stroke={s.color}
+									stroke-width={activeUserId === s.id ? 3.5 : 2}
+									stroke-linejoin="round"
+									stroke-linecap="round"
+								/>
 
-							<polyline
-								points={points}
-								fill="none"
-								stroke={color}
-								stroke-width="2"
-								opacity="0.8"
-							/>
-
-							<!-- Data points -->
-							{#each userPerf.data as d, i}
-								{@const x = 50 + (i / (uniqueGames.length - 1 || 1)) * 900}
-								{@const y = 350 - ((d.delta ?? 0) * 6)}
-								<circle cx={x} cy={y} r="4" fill={color} />
-							{/each}
+								{#each s.points as p}
+									<circle
+										cx={p.x}
+										cy={p.y}
+										r={activeUserId === s.id ? 5.5 : 4}
+										fill={s.color}
+										stroke="currentColor"
+										stroke-width="2"
+										class="text-gray-50 dark:text-gray-900"
+									/>
+								{/each}
+							</g>
 						{/each}
 
-						<!-- X-axis labels -->
+						<!-- Transparent hit columns: the reader aims at a game, not at a 2px line -->
 						{#each uniqueGames as game, i}
-							{@const x = 50 + (i / (uniqueGames.length - 1 || 1)) * 900}
+							{@const step = (PLOT.right - PLOT.left) / (uniqueGames.length - 1 || 1)}
+							<rect
+								x={xFor(i, uniqueGames.length) - step / 2}
+								y={PLOT.top}
+								width={step}
+								height={PLOT.bottom - PLOT.top}
+								fill="transparent"
+								on:pointerenter={() => (hoveredGameIndex = i)}
+							/>
+						{/each}
+
+						<!-- X-axis labels: the opponent, not our own team -->
+						{#each uniqueGames as game, i}
+							{@const x = xFor(i, uniqueGames.length)}
 							<text
-								x={x}
+								{x}
 								y="380"
 								text-anchor="middle"
-								class="text-xs fill-current text-gray-600 dark:text-gray-400"
+								class="text-xs fill-current {hoveredGameIndex === i
+									? 'text-gray-900 dark:text-gray-100 font-semibold'
+									: 'text-gray-600 dark:text-gray-400'}"
 								transform="rotate(-45, {x}, 380)"
 							>
-								{game.label.split(' vs ')[0].substring(0, 8)}
+								{truncate(game.label)}
 							</text>
 						{/each}
+
+						<!-- Tooltip: every series at the hovered game, value first -->
+						{#if tooltipGame && tooltipRows.length > 0}
+							{@const rowH = 15}
+							{@const boxH = 24 + tooltipRows.length * rowH}
+							{@const boxW = 168}
+							{@const cx = xFor(hoveredGameIndex ?? 0, uniqueGames.length)}
+							{@const bx = Math.min(Math.max(cx + 14, PLOT.left), PLOT.right - boxW)}
+							<g pointer-events="none">
+								<rect
+									x={bx}
+									y={PLOT.top}
+									width={boxW}
+									height={boxH}
+									rx="6"
+									fill="currentColor"
+									class="text-white dark:text-gray-800"
+									stroke="currentColor"
+									stroke-width="1"
+									opacity="0.97"
+								/>
+								<rect
+									x={bx}
+									y={PLOT.top}
+									width={boxW}
+									height={boxH}
+									rx="6"
+									fill="none"
+									stroke="currentColor"
+									stroke-width="1"
+									class="text-gray-300 dark:text-gray-600"
+								/>
+								<text
+									x={bx + 10}
+									y={PLOT.top + 16}
+									class="text-xs font-semibold fill-current text-gray-900 dark:text-gray-100"
+								>
+									{truncate(tooltipGame.fullLabel, 24)}
+								</text>
+								{#each tooltipRows as row, ri}
+									{@const ry = PLOT.top + 30 + ri * rowH}
+									<line
+										x1={bx + 10}
+										y1={ry - 3}
+										x2={bx + 22}
+										y2={ry - 3}
+										stroke={row.color}
+										stroke-width="3"
+										stroke-linecap="round"
+									/>
+									<text
+										x={bx + 28}
+										y={ry}
+										class="fill-current {activeUserId === row.id
+											? 'text-gray-900 dark:text-gray-100 font-semibold'
+											: 'text-gray-600 dark:text-gray-400'}"
+										style="font-size: 10px;"
+									>
+										{truncate(row.name, 16)}
+									</text>
+									<text
+										x={bx + boxW - 10}
+										y={ry}
+										text-anchor="end"
+										class="fill-current text-gray-900 dark:text-gray-100 font-semibold"
+										style="font-size: 10px;"
+									>
+										{row.delta}
+									</text>
+								{/each}
+							</g>
+						{/if}
 					</svg>
 				</div>
 			</div>
 
-			<!-- Legend -->
-			<div class="mt-6 flex flex-wrap gap-4">
-				{#each userPerformanceArray as userPerf, userIndex}
-					{@const color = colors[userIndex % colors.length]}
-					<div class="flex items-center gap-2">
-						<div class="w-4 h-4 rounded" style="background-color: {color};"></div>
-						<span class="text-sm text-gray-700 dark:text-gray-300">{userPerf.name}</span>
-					</div>
+			<!-- Legend: hover or focus previews a player, click pins them -->
+			<div class="mt-6 flex flex-wrap gap-2">
+				{#each series as s}
+					<button
+						type="button"
+						on:mouseenter={() => (hoveredUserId = s.id)}
+						on:mouseleave={() => (hoveredUserId = null)}
+						on:focus={() => (hoveredUserId = s.id)}
+						on:blur={() => (hoveredUserId = null)}
+						on:click={() => togglePinned(s.id)}
+						aria-pressed={pinnedUserId === s.id}
+						class="flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all duration-150 {pinnedUserId ===
+						s.id
+							? 'border-gray-400 dark:border-gray-400 bg-gray-100 dark:bg-gray-700 shadow-sm'
+							: 'border-transparent hover:bg-gray-100 dark:hover:bg-gray-700'} {isDimmed(s.id)
+							? 'opacity-40'
+							: 'opacity-100'}"
+					>
+						<span class="w-4 h-1.5 rounded-full" style="background-color: {s.color};"></span>
+						<span class="text-sm text-gray-700 dark:text-gray-300">{s.name}</span>
+					</button>
 				{/each}
+				{#if pinnedUserId !== null}
+					<button
+						type="button"
+						on:click={() => (pinnedUserId = null)}
+						class="px-3 py-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 underline"
+					>
+						Show all
+					</button>
+				{/if}
 			</div>
 		</div>
 	{/if}
