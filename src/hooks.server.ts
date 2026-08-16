@@ -46,6 +46,9 @@ process.on('SIGINT', () => {
  * Hooks run on every request
  * This hook checks for authentication and adds user to locals
  */
+/** Cookie remembering that an admin wants to browse as an ordinary member. */
+const ADMIN_VIEW_COOKIE = 'av';
+
 export const handle: Handle = async ({ event, resolve }) => {
 	const sessionToken = getSessionToken(event);
 
@@ -55,6 +58,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 			event.locals.user = user;
 		}
 	}
+
+	// The cookie is written by /view-as (cookies set here are dropped when a
+	// redirect is thrown from a hook). A one-off ?av= is still honoured for the
+	// current request so the URL can be edited by hand.
+	const requested = event.url.searchParams.get('av');
+	event.locals.viewAsMember =
+		requested === 'off' || requested === 'on'
+			? requested === 'off'
+			: event.cookies.get(ADMIN_VIEW_COOKIE) === 'off';
 
 	return resolve(event);
 };

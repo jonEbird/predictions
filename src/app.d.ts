@@ -6,6 +6,11 @@ declare global {
 		interface Error {}
 		interface Locals {
 			user?: User;
+			/**
+			 * Admin opted into seeing the site as an ordinary member. Hides inline
+			 * admin UI only — it is a view preference, not a permission change.
+			 */
+			viewAsMember?: boolean;
 		}
 		interface PageData {}
 		interface PageState {}

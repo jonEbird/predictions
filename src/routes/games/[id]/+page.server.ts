@@ -25,7 +25,12 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	}
 
 	// Check if user is admin (only for authenticated users)
-	const isAdmin = locals.user ? await isUserGroupAdmin(locals.user.id, groupId) : false;
+	// Display-only: respects the "view as member" toggle so an admin can preview
+	// the member experience. The actions below re-check the real permission.
+	const isAdmin =
+		locals.user && !locals.viewAsMember
+			? await isUserGroupAdmin(locals.user.id, groupId)
+			: false;
 
 	// Get game with all predictions
 	const gameData = await getGameWithPredictions(gameId, groupId);

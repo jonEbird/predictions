@@ -2,6 +2,7 @@
 	import '../app.css';
 	import type { LayoutData } from './$types';
 	import { SITE_NAME } from '$lib/config';
+	import { page } from '$app/stores';
 
 	export let data: LayoutData;
 </script>
@@ -30,6 +31,21 @@
 							class="px-4 py-2 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:shadow-md"
 						>
 							⚙️ Admin
+						</a>
+						<a
+							href="/view-as?av=off&back={encodeURIComponent($page.url.pathname + $page.url.search)}"
+							title="Preview the site the way ordinary members see it"
+							class="px-3 py-2 rounded-lg text-sm font-medium text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
+						>
+							View as member
+						</a>
+					{:else if data.user && data.isAdminUser && data.viewAsMember}
+						<a
+							href="/view-as?av=on&back={encodeURIComponent($page.url.pathname + $page.url.search)}"
+							title="Restore admin controls"
+							class="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 hover:bg-amber-200 dark:hover:bg-amber-900/60 transition-all duration-200"
+						>
+							👁️ Member view — restore admin
 						</a>
 					{/if}
 				</div>

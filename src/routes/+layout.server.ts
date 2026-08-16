@@ -21,6 +21,11 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 
 	return {
 		user: locals.user || null,
-		isAdmin
+		// isAdmin drives inline admin UI, so it respects the "view as member"
+		// toggle. isAdminUser is the real capability, used to render the toggle
+		// itself and to keep the /admin route reachable.
+		isAdmin: isAdmin && !locals.viewAsMember,
+		isAdminUser: isAdmin,
+		viewAsMember: Boolean(locals.viewAsMember)
 	};
 };
