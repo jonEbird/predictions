@@ -1,5 +1,11 @@
-import { RESEND_API_KEY, RESEND_FROM_EMAIL } from '$env/static/private';
 import { Resend } from 'resend';
+
+// Read at runtime rather than via $env/static/private. Static env values are
+// inlined into the bundle at build time, so a container image would carry
+// whatever .env existed during the build instead of the deployment's real
+// credentials. Same reasoning as src/lib/db/index.ts.
+const RESEND_API_KEY = process.env.RESEND_API_KEY ?? '';
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? '';
 
 const resend = new Resend(RESEND_API_KEY);
 
