@@ -248,7 +248,12 @@
 		<div class="lg:col-span-2">
 			<!-- Prediction Form (if game hasn't started and user can predict) -->
 			{#if data.canPredict}
-				<PredictionForm game={data.game} groupId={data.groupId} existingPrediction={data.userPrediction} />
+				<PredictionForm
+					game={data.game}
+					groupId={data.groupId}
+					existingPrediction={data.userPrediction}
+					user={data.user}
+				/>
 			{:else if !data.gameStarted && data.userPrediction}
 				<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6">
 					<div class="flex items-start gap-3">
