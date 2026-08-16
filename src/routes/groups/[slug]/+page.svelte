@@ -35,6 +35,16 @@
 		return g.game.status === 'finished' || (g.game.status === 'scheduled' && gameTime <= now);
 	});
 
+	// Standings and stats only mean something once a game has an actual result.
+	// Before that, the season is "not started" and we showcase the roster instead.
+	$: seasonStarted = data.games.some((g) => g.game.status === 'finished');
+
+	// Only the next game needs a prediction; later ones stay hidden until their turn.
+	$: nextGame = upcomingGames[0];
+
+	// Pre-season roster reads better alphabetically than in arbitrary all-zero rank order.
+	$: roster = [...data.leaderboard].sort((a, b) => a.user.name.localeCompare(b.user.name));
+
 	// Theme colors from group
 	$: primaryColor = data.group.primaryColor || '#BB0000';
 	$: accentColor = data.group.accentColor || '#666666';
@@ -118,8 +128,8 @@
 		</div>
 	</div>
 
-	<!-- Stats Preview Card -->
-	{#if data.statsPreview.currentLeader}
+	<!-- Stats Preview Card (nothing to report until a game has finished) -->
+	{#if seasonStarted && data.statsPreview.currentLeader}
 		<div class="mb-8 bg-gradient-to-br from-white to-blue-50 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow-lg p-6 border-2 border-blue-200 dark:border-blue-800">
 			<div class="flex items-center justify-between mb-4">
 				<h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100">📊 Season Stats</h2>
@@ -214,22 +224,20 @@
 			</div>
 		{/if}
 
-		<!-- Upcoming Games -->
-		{#if upcomingGames.length > 0}
+		<!-- Next Game -- later games stay hidden until they come up -->
+		{#if nextGame}
 			<div>
 				<h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-					Upcoming Games
+					Next Game
 				</h2>
 				<div class="grid gap-6 md:grid-cols-2">
-					{#each upcomingGames as { game, predictionCount, winners }}
-						<GameCard
-							{game}
-							{predictionCount}
-							{winners}
-							{accentColor}
-							href="/games/{game.id}?groupId={data.group.id}"
-						/>
-					{/each}
+					<GameCard
+						game={nextGame.game}
+						predictionCount={nextGame.predictionCount}
+						winners={nextGame.winners}
+						{accentColor}
+						href="/games/{nextGame.game.id}?groupId={data.group.id}"
+					/>
 				</div>
 			</div>
 		{/if}
@@ -238,7 +246,35 @@
 	<!-- Leaderboard Section -->
 	{#if data.leaderboard.length > 0}
 		<div class="mb-8 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow-lg p-8 border border-gray-200 dark:border-gray-700">
-			<h2 class="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">Season Standings</h2>
+			{#if !seasonStarted}
+				<!-- Pre-season: no one has placed yet, so just showcase who's playing -->
+				<h2 class="text-3xl font-bold mb-2 text-gray-900 dark:text-gray-100">
+					The Contestants
+				</h2>
+				<p class="text-gray-600 dark:text-gray-400 mb-6">
+					{roster.length} making picks this season. Standings begin after the first game.
+				</p>
+
+				<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+					{#each roster as entry}
+						<a
+							href="/users/{entry.user.id}/stats?groupId={data.group.id}"
+							class="flex flex-col items-center text-center p-4 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-md hover:scale-105 transition-all duration-200"
+						>
+							<UserAvatar name={entry.user.name} mugshotUrl={entry.user.mugshotUrl} size="lg" />
+							<div class="mt-3 font-semibold text-gray-900 dark:text-gray-100">
+								{entry.user.name}
+							</div>
+							{#if entry.user.nickname}
+								<div class="text-sm text-gray-500 dark:text-gray-400">
+									"{entry.user.nickname}"
+								</div>
+							{/if}
+						</a>
+					{/each}
+				</div>
+			{:else}
+				<h2 class="text-3xl font-bold mb-6 text-gray-900 dark:text-gray-100">Season Standings</h2>
 
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<!-- Top 3 Podium -->
@@ -306,6 +342,7 @@
 						{/each}
 					</div>
 				</div>
+				{/if}
 			{/if}
 		</div>
 	{/if}
