@@ -6,7 +6,19 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID ?? '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN ?? '';
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER ?? '';
 
-const client = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+// Constructed on first send, not at import, so the module stays importable
+// without credentials -- SvelteKit's build imports it to analyse it.
+let twilioClient: ReturnType<typeof twilio> | null = null;
+
+function getTwilioClient(): ReturnType<typeof twilio> {
+	if (!twilioClient) {
+		if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
+			throw new Error('TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are not set');
+		}
+		twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+	}
+	return twilioClient;
+}
 
 // Check if we should only log to console instead of actually sending
 const SMS_CONSOLE_ONLY = process.env.SMS_CONSOLE_ONLY === 'true';
@@ -140,7 +152,7 @@ export async function sendSMS(options: SendSMSOptions): Promise<SendSMSResult> {
 
 		// Send the message
 		console.log(`📱 Sending SMS to ${normalizedPhone} (from: ${TWILIO_PHONE_NUMBER})`);
-		const result = await client.messages.create({
+		const result = await getTwilioClient().messages.create({
 			body: message,
 			from: TWILIO_PHONE_NUMBER,
 			to: normalizedPhone

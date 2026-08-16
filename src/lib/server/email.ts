@@ -7,7 +7,21 @@ import { Resend } from 'resend';
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? '';
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? '';
 
-const resend = new Resend(RESEND_API_KEY);
+// Constructed on first send, not at import. The SDK throws when the key is empty
+// and process.env.RESEND_API_KEY is also unset, and SvelteKit's build imports this
+// module to analyse it -- so with no credentials present, constructing at import
+// fails the Docker build.
+let resendClient: Resend | null = null;
+
+function getResend(): Resend {
+	if (!resendClient) {
+		if (!RESEND_API_KEY) {
+			throw new Error('RESEND_API_KEY is not set');
+		}
+		resendClient = new Resend(RESEND_API_KEY);
+	}
+	return resendClient;
+}
 
 export interface SendEmailOptions {
 	to: string | string[];
@@ -109,7 +123,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
 		console.log(`   From: ${RESEND_FROM_EMAIL}`);
 		console.log(`   Subject: ${subject}`);
 
-		const result = await resend.emails.send({
+		const result = await getResend().emails.send({
 			from: RESEND_FROM_EMAIL,
 			to: recipients,
 			subject,
