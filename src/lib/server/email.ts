@@ -24,6 +24,18 @@ export interface BulkEmailOptions {
 	adminEmail?: string; // In dev mode, only send to this email
 }
 
+export interface PersonalizedEmail {
+	email: string;
+	subject: string;
+	html: string;
+	text?: string;
+}
+
+export interface PersonalizedEmailOptions {
+	messages: PersonalizedEmail[];
+	adminEmail?: string; // In dev mode, only send to this email
+}
+
 /**
  * Validate email address format
  */
@@ -185,6 +197,69 @@ export async function sendBulkEmail(options: BulkEmailOptions): Promise<{
 
 		// Small delay to avoid hitting rate limits (Resend limit: 10 emails/second on free tier)
 		await new Promise(resolve => setTimeout(resolve, 150));
+	}
+
+	return results;
+}
+
+/**
+ * Send a distinct email to each recipient.
+ *
+ * Same dev-mode filtering, validation, and rate-limit pacing as sendBulkEmail, but
+ * each recipient carries its own rendered subject/body so admin messages can use
+ * {name}-style placeholders.
+ */
+export async function sendPersonalizedEmail(options: PersonalizedEmailOptions): Promise<{
+	sent: number;
+	failed: number;
+	skipped: number;
+	errors: Array<{ email: string; error: string }>;
+	devMode: boolean;
+}> {
+	const { messages, adminEmail } = options;
+
+	const allEmails = messages.map((m) => m.email);
+	const allowed = filterRecipientsForDevMode(allEmails, adminEmail);
+	const allowedSet = new Set(allowed.map((e) => e.toLowerCase().trim()));
+	const filtered = messages.filter((m) => allowedSet.has(m.email.toLowerCase().trim()));
+
+	const devMode = isDevelopmentMode();
+	const results = {
+		sent: 0,
+		failed: 0,
+		skipped: messages.length - filtered.length,
+		errors: [] as Array<{ email: string; error: string }>,
+		devMode
+	};
+
+	if (devMode && results.skipped > 0) {
+		console.log(`🧪 Development mode: Skipped ${results.skipped} recipient(s)`);
+	}
+
+	for (const message of filtered) {
+		if (!isValidEmail(message.email)) {
+			console.warn(`⚠️  Skipping invalid email: ${message.email}`);
+			results.failed++;
+			results.errors.push({ email: message.email, error: 'Invalid email format' });
+			continue;
+		}
+
+		const result = await sendEmail({
+			to: message.email,
+			subject: message.subject,
+			html: message.html,
+			text: message.text
+		});
+
+		if (result.success) {
+			results.sent++;
+		} else {
+			results.failed++;
+			results.errors.push({ email: message.email, error: result.error || 'Unknown error' });
+		}
+
+		// Small delay to avoid hitting rate limits (Resend limit: 10 emails/second on free tier)
+		await new Promise((resolve) => setTimeout(resolve, 150));
 	}
 
 	return results;

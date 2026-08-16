@@ -2,6 +2,11 @@
 	import type { PageData, ActionData } from './$types';
 	import { enhance } from '$app/forms';
 	import { parseGameTimeET, formatGameTimeInput, formatET, easternAbbreviation } from '$lib/datetime';
+	import {
+		renderTemplate,
+		unknownPlaceholders,
+		TEMPLATE_PLACEHOLDERS
+	} from '$lib/templating';
 
 	export let data: PageData;
 	export let form: ActionData;
@@ -10,6 +15,18 @@
 	let isSendingEmail = false;
 	let isSendingSMS = false;
 	let editingGameId: number | null = null;
+
+	// Live placeholder preview for the email composer. Rendered against the signed-in
+	// admin so the sample values are real, using the same renderer the server uses.
+	let emailMessage = '';
+	$: previewVars = {
+		name: data.user?.name ?? 'Jon Miller',
+		nickname: data.user?.nickname || (data.user?.name ?? 'Jon').split(' ')[0],
+		game_url: `https://buckeyepredictions.com/games/…?groupId=${data.group.id}`,
+		site_url: 'https://buckeyepredictions.com'
+	};
+	$: emailPreview = renderTemplate(emailMessage, previewVars, { escape: false });
+	$: emailUnknownPlaceholders = unknownPlaceholders(emailMessage);
 
 	// Form state for creating games
 	let newGame = {
@@ -484,8 +501,39 @@
 							name="message"
 							rows="6"
 							required
+							bind:value={emailMessage}
 							class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-gray-100"
 						></textarea>
+
+						<div class="mt-2 text-xs text-gray-600 dark:text-gray-400">
+							<span class="font-semibold">Placeholders</span> — each recipient gets their own values:
+							<span class="inline-flex flex-wrap gap-x-1 gap-y-1 mt-1">
+								{#each TEMPLATE_PLACEHOLDERS as placeholder, i}
+									<span class="whitespace-nowrap">
+										<code class="px-1 py-0.5 bg-gray-100 dark:bg-gray-900 rounded">
+											{'{'}{placeholder.key}{'}'}
+										</code>
+										→ {placeholder.describes}{i < TEMPLATE_PLACEHOLDERS.length - 1 ? ';' : ''}
+									</span>
+								{/each}
+							</span>
+						</div>
+
+						{#if emailUnknownPlaceholders.length > 0}
+							<p class="mt-2 text-xs text-amber-700 dark:text-amber-400">
+								⚠️ Not a known placeholder, will send as-is:
+								{emailUnknownPlaceholders.map((p) => `{${p}}`).join(', ')}
+							</p>
+						{/if}
+
+						{#if emailMessage.trim()}
+							<div class="mt-2 p-3 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs">
+								<div class="font-semibold text-gray-700 dark:text-gray-300 mb-1">
+									Preview as {previewVars.name}:
+								</div>
+								<div class="text-gray-600 dark:text-gray-400 whitespace-pre-wrap">{emailPreview}</div>
+							</div>
+						{/if}
 					</div>
 
 					<div>

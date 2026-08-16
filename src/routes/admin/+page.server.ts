@@ -2,13 +2,36 @@ import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { db } from '$lib/db';
 import { games, groupGames, groups, users, memberships } from '$lib/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, asc, desc, gt } from 'drizzle-orm';
 import { getGroupSeasons, getGroupBySlugAndSeason, isUserGroupAdmin } from '$lib/server/queries/groups';
 import { DEFAULT_GROUP_SLUG } from '$lib/config';
 import { sendBulkSMS } from '$lib/server/sms';
-import { sendBulkEmail, createEmailTemplate } from '$lib/server/email';
+import { sendPersonalizedEmail, createEmailTemplate } from '$lib/server/email';
 import { sendGameResultNotifications } from '$lib/server/game-results';
 import { parseGameTimeET } from '$lib/datetime';
+import { renderTemplate } from '$lib/templating';
+
+/**
+ * The soonest scheduled game still open for predictions, for {game_url}.
+ * Returns null when nothing upcoming is left.
+ */
+async function getNextPredictableGame(groupId: number) {
+	const rows = await db
+		.select({ game: games })
+		.from(groupGames)
+		.innerJoin(games, eq(groupGames.gameId, games.id))
+		.where(
+			and(
+				eq(groupGames.groupId, groupId),
+				eq(games.status, 'scheduled'),
+				gt(games.gameTime, new Date())
+			)
+		)
+		.orderBy(asc(games.gameTime))
+		.limit(1);
+
+	return rows[0]?.game ?? null;
+}
 
 export const load: PageServerLoad = async ({ locals }) => {
 	// Require authentication
@@ -288,7 +311,7 @@ export const actions: Actions = {
 		}
 	},
 
-	sendEmail: async ({ request, locals }) => {
+	sendEmail: async ({ request, locals, url }) => {
 		if (!locals.user) {
 			return fail(401, { message: 'Not authenticated' });
 		}
@@ -331,13 +354,13 @@ export const actions: Actions = {
 
 			const members = await memberQuery;
 
-			const emailList = members
-				.filter((m) => {
-					if (recipients === 'all') return m.user.emailNotifications;
-					if (recipients === 'betting') return m.membership.betting && m.user.emailNotifications;
-					return false;
-				})
-				.map((m) => m.user.email);
+			const emailRecipients = members.filter((m) => {
+				if (recipients === 'all') return m.user.emailNotifications;
+				if (recipients === 'betting') return m.membership.betting && m.user.emailNotifications;
+				return false;
+			});
+
+			const emailList = emailRecipients.map((m) => m.user.email);
 
 			if (emailList.length === 0) {
 				return fail(400, { message: 'No recipients found with email notifications enabled' });
@@ -347,20 +370,39 @@ export const actions: Actions = {
 			const adminUser = members.find(m => m.user.id === locals.user?.id);
 			const adminEmail = adminUser?.user.email || undefined;
 
-			// Create email template
-			const { html, text } = createEmailTemplate({
-				title: subject,
-				body: `<p>${message.replace(/\n/g, '<br>')}</p>`,
-				footerText: `${group.name} | Buckeye Predictions`
+			// {game_url} points at the next game still open for predictions.
+			const nextGame = await getNextPredictableGame(group.id);
+			const gameUrl = nextGame
+				? `${url.origin}/games/${nextGame.id}?groupId=${group.id}`
+				: `${url.origin}/groups/${group.slug}`;
+
+			// Render per recipient so {name}-style placeholders resolve individually.
+			const personalized = emailRecipients.map((m) => {
+				const vars = {
+					name: m.user.name,
+					nickname: m.user.nickname || m.user.name.split(' ')[0],
+					game_url: gameUrl,
+					site_url: url.origin
+				};
+
+				const { html, text } = createEmailTemplate({
+					title: renderTemplate(subject, vars),
+					body: `<p>${renderTemplate(message, vars).replace(/\n/g, '<br>')}</p>`,
+					footerText: `${group.name} | Buckeye Predictions`
+				});
+
+				return {
+					email: m.user.email,
+					subject: renderTemplate(subject, vars, { escape: false }),
+					html,
+					text
+				};
 			});
 
 			// Send emails
 			console.log(`📧 Sending email to ${emailList.length} recipients`);
-			const result = await sendBulkEmail({
-				recipients: emailList,
-				subject,
-				html,
-				text,
+			const result = await sendPersonalizedEmail({
+				messages: personalized,
 				adminEmail
 			});
 
