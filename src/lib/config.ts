@@ -19,6 +19,12 @@ export const DEFAULT_GROUP_SLUG = 'bucknuts';
 export const SITE_NAME = 'Bucknuts Predictions';
 
 /**
+ * Public base URL of the site, used to build links in messages sent outside a
+ * request (scheduled jobs have no request origin to read).
+ */
+export const SITE_URL = 'https://buckeyepredictions.com';
+
+/**
  * Enable multi-group mode
  * When true, users can belong to multiple groups and see a groups list
  * When false, redirects to the default group

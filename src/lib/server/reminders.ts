@@ -3,7 +3,7 @@ import { games, predictions, users, memberships, groups, groupGames } from '$lib
 import { eq, and, gte, lte, isNull } from 'drizzle-orm';
 import { sendBulkEmail, createEmailTemplate } from './email';
 import { sendPersonalizedSMS } from './sms';
-import { DEFAULT_GROUP_SLUG } from '$lib/config';
+import { DEFAULT_GROUP_SLUG, SITE_URL } from '$lib/config';
 import { formatET, easternAbbreviation } from '$lib/datetime';
 
 /**
@@ -170,7 +170,7 @@ export async function sendGameReminders(): Promise<void> {
 					<h2>${game.homeTeam} vs ${game.awayTeam}</h2>
 					<p><strong>Game Time:</strong> ${gameTimeStr}</p>
 					<p>Make your prediction now before it's too late!</p>
-					<p><a href="https://predictions.yourdomain.com" style="display: inline-block; padding: 10px 20px; background-color: #bb0000; color: white; text-decoration: none; border-radius: 5px;">Make Prediction</a></p>
+					<p><a href="${SITE_URL}" style="display: inline-block; padding: 10px 20px; background-color: #bb0000; color: white; text-decoration: none; border-radius: 5px;">Make Prediction</a></p>
 				`;
 
 				const { html, text } = createEmailTemplate({

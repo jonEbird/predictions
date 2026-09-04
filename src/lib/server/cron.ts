@@ -1,5 +1,5 @@
 import cron, { type ScheduledTask } from 'node-cron';
-import CronParser from 'cron-parser';
+import { CronExpressionParser } from 'cron-parser';
 import { db } from '$lib/db';
 import { cronJobs } from '$lib/db/schema';
 import { eq } from 'drizzle-orm';
@@ -25,7 +25,7 @@ export function registerJobHandler(jobType: string, handler: JobHandler) {
 function calculateNextRun(schedule: string): Date {
 	try {
 		// Use 5-field cron format (no seconds) to match node-cron
-		const interval = CronParser.parse(schedule, {
+		const interval = CronExpressionParser.parse(schedule, {
 			currentDate: new Date(),
 			tz: 'America/New_York' // Adjust timezone as needed
 		});
