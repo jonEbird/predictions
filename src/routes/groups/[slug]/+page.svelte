@@ -211,10 +211,12 @@
 			<div>
 				<h2 class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">Live Games</h2>
 				<div class="grid gap-6 md:grid-cols-2">
-					{#each liveGames as { game, predictionCount, winners }}
+					{#each liveGames as { game, predictionCount, memberCount, predictedMemberCount, winners }}
 						<GameCard
 							{game}
 							{predictionCount}
+							{memberCount}
+							{predictedMemberCount}
 							{winners}
 							{accentColor}
 							href="/games/{game.id}?groupId={data.group.id}"
@@ -234,6 +236,8 @@
 					<GameCard
 						game={nextGame.game}
 						predictionCount={nextGame.predictionCount}
+						memberCount={nextGame.memberCount}
+						predictedMemberCount={nextGame.predictedMemberCount}
 						winners={nextGame.winners}
 						{accentColor}
 						href="/games/{nextGame.game.id}?groupId={data.group.id}"
@@ -356,10 +360,12 @@
 					Finished Games
 				</h2>
 				<div class="grid gap-6 md:grid-cols-2">
-					{#each finishedGames as { game, predictionCount, winners }}
+					{#each finishedGames as { game, predictionCount, memberCount, predictedMemberCount, winners }}
 						<GameCard
 							{game}
 							{predictionCount}
+							{memberCount}
+							{predictedMemberCount}
 							{winners}
 							{accentColor}
 							href="/games/{game.id}?groupId={data.group.id}"

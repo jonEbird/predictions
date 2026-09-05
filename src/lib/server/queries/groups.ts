@@ -60,6 +60,25 @@ export async function getGroupWithGames(slug: string, season: number) {
 				FROM ${predictions} p
 				WHERE p.game_id = ${games.id}
 				AND p.group_id = ${group.id}
+			)`,
+			memberCount: sql<number>`(
+				SELECT COUNT(*)
+				FROM ${memberships} m
+				WHERE m.group_id = ${group.id}
+			)`,
+			// Members with a pick, rather than raw prediction rows, so this lines up
+			// with haveAllMembersPredicted() and can't be skewed by a stray row.
+			predictedMemberCount: sql<number>`(
+				SELECT COUNT(*)
+				FROM ${memberships} m
+				WHERE m.group_id = ${group.id}
+				AND EXISTS (
+					SELECT 1
+					FROM ${predictions} p
+					WHERE p.game_id = "games"."id"
+					AND p.group_id = ${group.id}
+					AND p.user_id = m.user_id
+				)
 			)`
 		})
 		.from(groupGames)

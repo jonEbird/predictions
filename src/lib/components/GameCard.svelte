@@ -9,6 +9,27 @@
 	export let href: string | undefined = undefined;
 	export let winners: User[] = [];
 	export let accentColor: string = '#666666';
+	/**
+	 * Group size and how many of them have picked. Together these drive the
+	 * prediction-phase wording; callers that don't have the counts get the plain
+	 * prediction tally instead.
+	 */
+	export let memberCount: number = 0;
+	export let predictedMemberCount: number = 0;
+
+	// The phase only matters while picks are being collected — once a game is live
+	// or finished everyone's picks are on show regardless.
+	$: collectingPicks = game.status === 'scheduled' && memberCount > 0;
+	$: remainingPicks = Math.max(memberCount - predictedMemberCount, 0);
+	$: picksLockedIn = collectingPicks && remainingPicks === 0;
+
+	$: predictionSummary = collectingPicks
+		? picksLockedIn
+			? `${memberCount} predictions locked in`
+			: `${remainingPicks} of ${memberCount} still predicting`
+		: `${predictionCount} prediction${predictionCount !== 1 ? 's' : ''}`;
+
+	$: showPredictionSummary = collectingPicks || predictionCount > 0;
 
 	function formatGameTime(timestamp: Date | null) {
 		if (!timestamp) return '';
@@ -39,9 +60,17 @@
 			<div class="flex-1">
 				<div class="flex items-center gap-3 mb-3">
 					<GameStatus status={game.status} />
-					{#if predictionCount > 0}
-						<span class="text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">
-							{predictionCount} prediction{predictionCount !== 1 ? 's' : ''}
+					{#if showPredictionSummary}
+						<span class="text-sm font-medium {picksLockedIn ? 'text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30' : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700'} px-2 py-1 rounded-md">
+							{predictionSummary}
+						</span>
+					{/if}
+					{#if picksLockedIn}
+						<span class="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-green-500 dark:border-green-600 text-green-700 dark:text-green-300 text-xs font-extrabold uppercase tracking-wide -rotate-3">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+							</svg>
+							Locked in
 						</span>
 					{/if}
 				</div>
@@ -114,9 +143,17 @@
 	>
 		<div class="flex items-center gap-3 mb-3">
 			<GameStatus status={game.status} />
-			{#if predictionCount > 0}
-				<span class="text-sm font-medium text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">
-					{predictionCount} prediction{predictionCount !== 1 ? 's' : ''}
+			{#if showPredictionSummary}
+				<span class="text-sm font-medium {picksLockedIn ? 'text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30' : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700'} px-2 py-1 rounded-md">
+					{predictionSummary}
+				</span>
+			{/if}
+			{#if picksLockedIn}
+				<span class="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-lg border-2 border-green-500 dark:border-green-600 text-green-700 dark:text-green-300 text-xs font-extrabold uppercase tracking-wide -rotate-3">
+					<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+						<path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+					</svg>
+					Locked in
 				</span>
 			{/if}
 		</div>
