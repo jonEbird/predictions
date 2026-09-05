@@ -1,5 +1,0 @@
-# Publicly hosted evidence for Twilio toll-free verification.
-#
-# Files here are served at https://buckeyepredictions.com/twilio/<filename>
-# and are submitted as OptInImageUrls on the toll-free verification request.
-# Twilio requires these URLs to be publicly reachable, with no login.

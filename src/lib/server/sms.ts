@@ -5,7 +5,9 @@ import { SITE_NAME } from '$lib/config';
 // src/lib/server/email.ts. Static values are baked in when the image is built.
 const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID ?? '';
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN ?? '';
-const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER ?? '';
+// A2P 10DLC binds the campaign to a Messaging Service, so send through the
+// service rather than a bare number -- that is the registered route.
+const TWILIO_MESSAGING_SERVICE_SID = process.env.TWILIO_MESSAGING_SERVICE_SID ?? '';
 
 // Constructed on first send, not at import, so the module stays importable
 // without credentials -- SvelteKit's build imports it to analyse it.
@@ -154,7 +156,7 @@ export async function sendSMS(options: SendSMSOptions): Promise<SendSMSResult> {
 		if (SMS_CONSOLE_ONLY) {
 			console.log('📋 CONSOLE-ONLY MODE - Would send SMS:');
 			console.log(`   To: ${normalizedPhone}`);
-			console.log(`   From: ${TWILIO_PHONE_NUMBER}`);
+			console.log(`   From: ${TWILIO_MESSAGING_SERVICE_SID}`);
 			console.log(`   Message: ${body}`);
 			console.log('   (Set SMS_CONSOLE_ONLY=false in .env to actually send)');
 			return {
@@ -164,10 +166,10 @@ export async function sendSMS(options: SendSMSOptions): Promise<SendSMSResult> {
 		}
 
 		// Send the message
-		console.log(`📱 Sending SMS to ${normalizedPhone} (from: ${TWILIO_PHONE_NUMBER})`);
+		console.log(`📱 Sending SMS to ${normalizedPhone} (via: ${TWILIO_MESSAGING_SERVICE_SID})`);
 		const result = await getTwilioClient().messages.create({
 			body,
-			from: TWILIO_PHONE_NUMBER,
+			messagingServiceSid: TWILIO_MESSAGING_SERVICE_SID,
 			to: normalizedPhone
 		});
 
