@@ -2,6 +2,7 @@ import type { Handle } from '@sveltejs/kit';
 import { getSessionToken, getUserFromSession } from '$lib/server/auth';
 import { initCronJobs, registerJobHandler, stopAllCronJobs } from '$lib/server/cron';
 import { sendGameReminders, sendPredictionDeadlineReminders } from '$lib/server/reminders';
+import { pollLiveGames } from '$lib/server/livetracking';
 
 // Initialize cron jobs on server startup
 let cronInitialized = false;
@@ -15,6 +16,7 @@ async function initializeCronSystem() {
 		// Register job handlers
 		registerJobHandler('game_reminders', sendGameReminders);
 		registerJobHandler('prediction_reminders', sendPredictionDeadlineReminders);
+		registerJobHandler('live_score_poll', pollLiveGames);
 
 		// Initialize cron jobs from database
 		await initCronJobs();

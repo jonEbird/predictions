@@ -64,7 +64,8 @@
 	function getJobTypeLabel(jobType: string) {
 		const labels: Record<string, string> = {
 			game_reminders: 'Game Reminders',
-			prediction_reminders: 'Prediction Deadline Reminders'
+			prediction_reminders: 'Prediction Deadline Reminders',
+			live_score_poll: 'Live Score Polling'
 		};
 		return labels[jobType] || jobType;
 	}
@@ -158,12 +159,14 @@
 					>
 						<option value="game_reminders">Game Reminders</option>
 						<option value="prediction_reminders">Prediction Deadline Reminders</option>
+						<option value="live_score_poll">Live Score Polling</option>
 					</select>
 					<div class="mt-2 p-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded text-xs">
 						<p class="font-semibold text-gray-700 dark:text-gray-300 mb-1">Job Type Descriptions:</p>
 						<div class="space-y-1 text-gray-600 dark:text-gray-400">
 							<p><strong>Game Reminders:</strong> Gentle initial notifications for games in the next 48 hours. Run once daily (e.g., <code>0 12 * * *</code> for noon).</p>
 							<p><strong>Prediction Deadline Reminders:</strong> Escalating urgent reminders for games today or tomorrow. Run multiple times daily (e.g., <code>0 */3 * * *</code> every 3 hours).</p>
+							<p><strong>Live Score Polling:</strong> Checks ESPN for in-progress games and updates their live score. Run frequently while games are on (e.g., <code>*/2 * * * *</code> every 2 minutes).</p>
 						</div>
 					</div>
 				</div>

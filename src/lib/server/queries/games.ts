@@ -1,6 +1,6 @@
 import { db } from '$lib/db';
 import { games, groupGames, predictions, users } from '$lib/db/schema';
-import { eq, and, desc, asc, sql } from 'drizzle-orm';
+import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
 
 /**
  * Get upcoming games for a specific group
@@ -143,6 +143,25 @@ export async function hasGameStarted(gameId: number): Promise<boolean> {
 
 	const now = new Date();
 	return game.gameTime <= now;
+}
+
+/**
+ * Games that have kicked off but aren't finalized yet, across every group --
+ * a real-world game is shared via `groupGames`, so this deliberately isn't
+ * scoped to one group. `windowStart` bounds how far back to keep polling a
+ * game an admin never got around to marking finished.
+ */
+export async function getGamesNeedingLiveUpdate(windowStart: Date) {
+	return await db
+		.select()
+		.from(games)
+		.where(
+			and(
+				inArray(games.status, ['scheduled', 'live']),
+				sql`${games.gameTime} <= unixepoch()`,
+				sql`${games.gameTime} >= ${Math.floor(windowStart.getTime() / 1000)}`
+			)
+		);
 }
 
 /**
