@@ -21,6 +21,7 @@ src/lib/db/migrations/*
 .env.local
 .env.production
 .envrc.local
+.venv/
 
 # OS
 .DS_Store

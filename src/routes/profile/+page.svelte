@@ -2,6 +2,7 @@
 	import type { PageData, ActionData } from './$types';
 	import { enhance } from '$app/forms';
 	import UserAvatar from '$lib/components/UserAvatar.svelte';
+	import { SITE_NAME } from '$lib/config';
 
 	export let data: PageData;
 	export let form: ActionData;
@@ -155,19 +156,27 @@
 							</span>
 						</label>
 
-						<label class="flex items-center">
+						<label class="flex items-start">
 							<input
 								type="checkbox"
 								name="smsNotifications"
 								checked={data.user.smsNotifications}
 								disabled={!data.user.phoneNumber}
-								class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
+								class="w-4 h-4 mt-0.5 shrink-0 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
 							/>
 							<span class="ml-2 text-sm text-gray-700 dark:text-gray-300">
-								SMS notifications
+								I agree to receive text messages from {SITE_NAME} about game reminders,
+								results, and group announcements at the phone number on my account.
 								{#if !data.user.phoneNumber}
 									<span class="text-gray-500">(phone number required)</span>
 								{/if}
+								<span class="block mt-1 text-xs text-gray-500 dark:text-gray-400">
+									Message frequency varies, typically 1&ndash;3 messages per week during football
+									season. Message and data rates may apply. Reply STOP to unsubscribe or HELP for
+									help. See our
+									<a href="/sms-opt-in" class="underline hover:text-gray-700 dark:hover:text-gray-300">
+										SMS Terms &amp; Privacy Policy</a>.
+								</span>
 							</span>
 						</label>
 					</div>

@@ -81,4 +81,14 @@
 
 	<!-- Main Content -->
 	<slot />
+
+	<!-- Footer -->
+	<footer class="mt-12 border-t border-gray-200 dark:border-gray-700 py-6">
+		<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm text-gray-500 dark:text-gray-400">
+			<span>&copy; {new Date().getFullYear()} {SITE_NAME}</span>
+			<a href="/sms-opt-in" class="underline hover:text-gray-700 dark:hover:text-gray-200">
+				SMS Terms &amp; Privacy Policy
+			</a>
+		</div>
+	</footer>
 </div>

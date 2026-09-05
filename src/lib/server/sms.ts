@@ -1,4 +1,5 @@
 import twilio from 'twilio';
+import { SITE_NAME } from '$lib/config';
 
 // Read at runtime rather than via $env/static/private -- see the note in
 // src/lib/server/email.ts. Static values are baked in when the image is built.
@@ -81,6 +82,16 @@ function isDevelopmentMode(): boolean {
 }
 
 /**
+ * Carriers require every A2P message to identify the business sending it and to
+ * tell the recipient how to stop. Applied here so every caller -- reminders,
+ * results, and admin broadcasts -- is covered, and so the message body matches
+ * the sample submitted for toll-free verification.
+ */
+function brandMessage(message: string): string {
+	return `${SITE_NAME}: ${message} Reply STOP to opt out.`;
+}
+
+/**
  * Filter recipients based on development mode
  * In dev mode, only sends to adminPhone if provided
  */
@@ -116,6 +127,8 @@ export async function sendSMS(options: SendSMSOptions): Promise<SendSMSResult> {
 	try {
 		const { to, message, bypassDevMode = false } = options;
 
+		const body = brandMessage(message);
+
 		// Normalize phone number
 		const normalizedPhone = normalizePhoneNumber(to);
 
@@ -142,7 +155,7 @@ export async function sendSMS(options: SendSMSOptions): Promise<SendSMSResult> {
 			console.log('📋 CONSOLE-ONLY MODE - Would send SMS:');
 			console.log(`   To: ${normalizedPhone}`);
 			console.log(`   From: ${TWILIO_PHONE_NUMBER}`);
-			console.log(`   Message: ${message}`);
+			console.log(`   Message: ${body}`);
 			console.log('   (Set SMS_CONSOLE_ONLY=false in .env to actually send)');
 			return {
 				success: true,
@@ -153,7 +166,7 @@ export async function sendSMS(options: SendSMSOptions): Promise<SendSMSResult> {
 		// Send the message
 		console.log(`📱 Sending SMS to ${normalizedPhone} (from: ${TWILIO_PHONE_NUMBER})`);
 		const result = await getTwilioClient().messages.create({
-			body: message,
+			body,
 			from: TWILIO_PHONE_NUMBER,
 			to: normalizedPhone
 		});
