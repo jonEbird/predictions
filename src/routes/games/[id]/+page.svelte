@@ -16,17 +16,26 @@
 	let adminAwayScore = data.game.awayScore?.toString() || '';
 	let adminStatus = data.game.status;
 
+	$: predictedCount = data.memberStatus.filter((m) => m.hasPredicted).length;
+	$: allPredicted = data.memberStatus.length > 0 && predictedCount === data.memberStatus.length;
+
 	// Track which prediction is being edited
 	let editingPredictionId: number | null = null;
 	let editingUserId: number | null = null; // For adding new predictions
-	let editHomeScore = '';
-	let editAwayScore = '';
+	let editHomeScore: number | string = '';
+	let editAwayScore: number | string = '';
 
-	function startEditPrediction(predictionId: number, homeScore: number, awayScore: number) {
+	// Prefill only once the scores are revealed — while picks are still hidden the
+	// form starts empty so an admin doesn't see the value they're overwriting.
+	function startEditPrediction(
+		predictionId: number,
+		homeScore: number | '' = '',
+		awayScore: number | '' = ''
+	) {
 		editingPredictionId = predictionId;
 		editingUserId = null;
-		editHomeScore = ''; // Start with empty form
-		editAwayScore = '';
+		editHomeScore = homeScore;
+		editAwayScore = awayScore;
 	}
 
 	function startAddPrediction(userId: number) {
@@ -254,7 +263,7 @@
 					existingPrediction={data.userPrediction}
 					user={data.user}
 				/>
-			{:else if !data.gameStarted && data.userPrediction}
+			{:else if data.predictionsLocked && !data.gameStarted}
 				<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6">
 					<div class="flex items-start gap-3">
 						<svg
@@ -267,23 +276,17 @@
 								stroke-linecap="round"
 								stroke-linejoin="round"
 								stroke-width="2"
-								d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+								d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
 							/>
 						</svg>
 						<div>
 							<h3 class="text-lg font-semibold text-green-900 dark:text-green-100 mb-2">
-								Prediction Submitted!
+								Predictions are locked
 							</h3>
-							<div class="text-green-800 dark:text-green-200">
-								<p class="mb-2">Your prediction:</p>
-								<p class="font-bold">
-									{data.game.homeTeam}: {data.userPrediction.homeScore}<br />
-									{data.game.awayTeam}: {data.userPrediction.awayScore}
-								</p>
-								<p class="mt-3 text-sm">
-									Predictions will be visible once the game starts.
-								</p>
-							</div>
+							<p class="text-green-800 dark:text-green-200">
+								All {data.memberStatus.length} predictions are in, so everyone's picks are revealed
+								below. No more changes — start talking trash.
+							</p>
 						</div>
 					</div>
 				</div>
@@ -305,8 +308,8 @@
 				</div>
 			{/if}
 
-			<!-- All Member Predictions (before game starts) -->
-			{#if !data.gameStarted}
+			<!-- Member Prediction Status (while picks are still being collected) -->
+			{#if !data.predictionsLocked}
 				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700 {data.canPredict || data.userPrediction ? 'mt-6' : ''}">
 					<h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
 						{data.isAdmin ? 'All Predictions (Admin View)' : 'All Predictions'}
@@ -425,7 +428,7 @@
 										<div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
 											<button
 												type="button"
-												on:click={() => startEditPrediction(memberPrediction?.prediction.id || 0, 0, 0)}
+												on:click={() => startEditPrediction(memberPrediction?.prediction.id || 0)}
 												class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
 											>
 												<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -462,11 +465,17 @@
 				</div>
 			{/if}
 
-			<!-- Predictions List (if game has started) -->
-			{#if data.gameStarted && data.predictions.length > 0}
-				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700">
+			<!-- Predictions List (once picks are locked and revealed) -->
+			{#if data.predictionsLocked && data.predictions.length > 0}
+				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 border border-gray-200 dark:border-gray-700 {data.predictionsLocked && !data.gameStarted ? 'mt-6' : ''}">
 					<h2 class="text-xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-						{data.game.status === 'finished' ? 'Final Results' : 'Live Predictions'}
+						{#if data.game.status === 'finished'}
+							Final Results
+						{:else if data.gameStarted}
+							Live Predictions
+						{:else}
+							All Predictions
+						{/if}
 					</h2>
 
 					<div class="space-y-3">
@@ -604,7 +613,7 @@
 						{/each}
 					</div>
 				</div>
-			{:else if data.gameStarted && data.predictions.length === 0}
+			{:else if data.predictionsLocked && data.predictions.length === 0}
 				<div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-12 text-center border border-gray-200 dark:border-gray-700">
 					<div class="text-gray-400 dark:text-gray-500 mb-4">
 						<svg
@@ -635,7 +644,14 @@
 		<div class="space-y-6">
 			<!-- Prediction Status -->
 			<div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 border border-gray-200 dark:border-gray-700">
-				<h3 class="font-semibold text-gray-900 dark:text-gray-100 mb-3">Prediction Status</h3>
+				<div class="flex items-center justify-between mb-3">
+					<h3 class="font-semibold text-gray-900 dark:text-gray-100">Prediction Status</h3>
+					{#if allPredicted}
+						<span class="text-xs font-semibold px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full">
+							Done
+						</span>
+					{/if}
+				</div>
 				<div class="space-y-2">
 					{#each data.memberStatus as member}
 						<div class="flex items-center justify-between text-sm">
@@ -655,8 +671,16 @@
 						</div>
 					{/each}
 				</div>
-				<div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400">
-					{data.memberStatus.filter(m => m.hasPredicted).length} of {data.memberStatus.length} predicted
+				<div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 text-sm">
+					{#if allPredicted}
+						<span class="font-medium text-green-700 dark:text-green-400">
+							All {data.memberStatus.length} predictions in — locked
+						</span>
+					{:else}
+						<span class="text-gray-600 dark:text-gray-400">
+							{predictedCount} of {data.memberStatus.length} predicted
+						</span>
+					{/if}
 				</div>
 			</div>
 

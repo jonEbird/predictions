@@ -33,6 +33,30 @@ export async function updatePrediction(
 }
 
 /**
+ * Check whether every member of a group has predicted for a game
+ */
+export async function haveAllMembersPredicted(gameId: number, groupId: number): Promise<boolean> {
+	// Aliased by hand: interpolating a column into `sql` renders it unqualified,
+	// which the correlated subquery would resolve against `p` instead of `m`.
+	const counts = await db.get<{ member_count: number; predicted_count: number }>(sql`
+		SELECT
+			COUNT(*) AS member_count,
+			SUM(CASE WHEN EXISTS (
+				SELECT 1
+				FROM ${predictions} p
+				WHERE p.game_id = ${gameId}
+				AND p.group_id = ${groupId}
+				AND p.user_id = m.user_id
+			) THEN 1 ELSE 0 END) AS predicted_count
+		FROM ${memberships} m
+		WHERE m.group_id = ${groupId}
+	`);
+
+	// An empty group has nothing to reveal, so it never counts as complete.
+	return counts.member_count > 0 && counts.predicted_count === counts.member_count;
+}
+
+/**
  * Get a user's prediction for a specific game
  */
 export async function getUserPrediction(userId: number, gameId: number, groupId: number) {

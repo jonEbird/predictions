@@ -3,7 +3,7 @@ import type { PageServerLoad, Actions } from './$types';
 import { getGameById, getGameWithPredictions, hasGameStarted } from '$lib/server/queries/games';
 import { getUserPrediction, createPrediction, updatePrediction } from '$lib/server/queries/predictions';
 import { isUserMemberOfGroup, getGroupMembers, isUserGroupAdmin } from '$lib/server/queries/groups';
-import { canUserPredict } from '$lib/server/game-logic/permissions';
+import { canUserPredict, arePredictionsLocked } from '$lib/server/game-logic/permissions';
 import { db } from '$lib/db';
 import { predictions, games } from '$lib/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -45,6 +45,9 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	// Check if game has started
 	const gameStarted = await hasGameStarted(gameId);
 
+	// Predictions lock — and are revealed — once the whole group is in, or at kickoff
+	const predictionsLocked = await arePredictionsLocked(gameId, groupId);
+
 	// Check if user can predict (only for authenticated users)
 	const canPredict = locals.user ? await canUserPredict(locals.user, gameData.game, groupId) : false;
 
@@ -72,9 +75,13 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	);
 
 	// Calculate deltas if game has scores entered
-	let predictionsWithDeltas = gameStarted || isAdmin ? gameData.predictions : [];
+	let predictionsWithDeltas = predictionsLocked || isAdmin ? gameData.predictions : [];
 
-	if ((gameStarted || isAdmin) && gameData.game.homeScore !== null && gameData.game.awayScore !== null) {
+	if (
+		(predictionsLocked || isAdmin) &&
+		gameData.game.homeScore !== null &&
+		gameData.game.awayScore !== null
+	) {
 		// Calculate delta for each prediction
 		predictionsWithDeltas = gameData.predictions.map(({ prediction, user }) => {
 			const homeDiff = Math.abs(prediction.homeScore - gameData.game.homeScore!);
@@ -100,6 +107,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		userPrediction,
 		canPredict,
 		gameStarted,
+		predictionsLocked,
 		groupId,
 		memberStatus,
 		isAdmin

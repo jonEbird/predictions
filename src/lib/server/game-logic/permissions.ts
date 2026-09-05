@@ -1,21 +1,40 @@
 import type { User, Group, Game, Prediction } from '$lib/db/schema';
 import { isUserGroupAdmin, isUserMemberOfGroup } from '../queries/groups';
 import { hasGameStarted } from '../queries/games';
+import { haveAllMembersPredicted } from '../queries/predictions';
+
+/**
+ * Check whether predictions for a game are locked for a group
+ *
+ * Predictions lock as soon as the whole group has weighed in — that's the point
+ * at which everyone's picks are revealed for discussion, so nobody gets to
+ * revise theirs after seeing the others. They also lock at kickoff, which
+ * covers the case where somebody never got around to predicting.
+ *
+ * Admins are exempt: they edit through the admin-only actions, which are how
+ * a transposed home/away score gets fixed after the reveal.
+ */
+export async function arePredictionsLocked(gameId: number, groupId: number): Promise<boolean> {
+	if (await hasGameStarted(gameId)) {
+		return true;
+	}
+
+	return await haveAllMembersPredicted(gameId, groupId);
+}
 
 /**
  * Check if a user can make or edit a prediction for a game
  * Rules:
  * 1. User must be a member of the group
- * 2. Game must not have started yet
+ * 2. Predictions must not be locked yet
  */
 export async function canUserPredict(
 	user: User,
 	game: Game,
 	groupId: number
 ): Promise<boolean> {
-	// Check if game has started
-	const gameStarted = await hasGameStarted(game.id);
-	if (gameStarted) {
+	// Check if predictions are still open
+	if (await arePredictionsLocked(game.id, groupId)) {
 		return false;
 	}
 
@@ -27,7 +46,7 @@ export async function canUserPredict(
  * Check if a user can edit an existing prediction
  * Rules:
  * 1. Must be their own prediction
- * 2. Game must not have started yet
+ * 2. Predictions must not be locked yet
  */
 export async function canEditPrediction(
 	user: User,
@@ -39,8 +58,7 @@ export async function canEditPrediction(
 		return false;
 	}
 
-	// Game must not have started
-	return !(await hasGameStarted(game.id));
+	return !(await arePredictionsLocked(game.id, prediction.groupId));
 }
 
 /**
@@ -54,7 +72,7 @@ export async function isUserAdmin(user: User, group: Group): Promise<boolean> {
  * Check if a user can view predictions for a game
  * Rules:
  * 1. User must be a member of the group
- * 2. Predictions are hidden until game starts
+ * 2. Predictions are hidden until they lock
  */
 export async function canViewPredictions(
 	user: User,
@@ -67,8 +85,8 @@ export async function canViewPredictions(
 		return false;
 	}
 
-	// Game must have started for predictions to be visible
-	return await hasGameStarted(game.id);
+	// Predictions stay hidden until they're locked
+	return await arePredictionsLocked(game.id, groupId);
 }
 
 /**

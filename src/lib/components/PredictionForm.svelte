@@ -141,7 +141,7 @@
 
 		{#if existingPrediction}
 			<p class="mt-3 text-sm text-gray-500 dark:text-gray-400 text-center">
-				You can edit your prediction until the game starts
+				You can edit your prediction until everyone's picks are in
 			</p>
 		{/if}
 	</form>
