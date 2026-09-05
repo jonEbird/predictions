@@ -63,12 +63,36 @@
 		})} ${easternAbbreviation(timestamp)}`;
 	}
 
-	function getScoreDifference(homeScore: number, awayScore: number): string {
-		const diff = Math.abs(homeScore - awayScore);
-		const winner = homeScore > awayScore ? 'Home' : awayScore > homeScore ? 'Away' : 'Tie';
-		if (winner === 'Tie') return 'Tie game';
-		return `${winner} by ${diff}`;
+	function marginLabel(homeScore: number, awayScore: number): string {
+		if (homeScore === awayScore) return 'Tie';
+		return homeScore > awayScore
+			? `${data.game.homeTeam} by ${homeScore - awayScore}`
+			: `${data.game.awayTeam} by ${awayScore - homeScore}`;
 	}
+
+	$: resultsAvailable = data.game.homeScore !== null && data.game.awayScore !== null;
+	$: outcomeLabel =
+		data.game.status === 'finished' ? 'Result' : resultsAvailable ? 'Off by' : 'Margin';
+
+	// One grid definition shared by the header and every row, so the columns line up.
+	// Margin is a nice-to-have, so it gives up its column on narrow screens rather
+	// than squeezing the names; a real result always keeps its place.
+	$: predictionRowGrid = resultsAvailable
+		? 'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 sm:gap-x-4'
+		: 'grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 sm:gap-x-4';
+	$: outcomeCellClass = resultsAvailable ? 'flex justify-end' : 'hidden sm:flex sm:justify-end';
+
+	// Once there are real scores the server has already sorted by delta. Before that,
+	// ordering by predicted margin puts the optimists and pessimists at either end,
+	// which is the comparison worth making.
+	$: orderedPredictions = resultsAvailable
+		? data.predictions
+		: [...data.predictions].sort(
+				(a, b) =>
+					b.prediction.homeScore -
+					b.prediction.awayScore -
+					(a.prediction.homeScore - a.prediction.awayScore)
+			);
 </script>
 
 <svelte:head>
@@ -263,7 +287,7 @@
 					existingPrediction={data.userPrediction}
 					user={data.user}
 				/>
-			{:else if data.predictionsLocked && !data.gameStarted}
+			{:else if data.predictionsLocked && !data.gameStarted && data.game.status === 'scheduled'}
 				<div class="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-6">
 					<div class="flex items-start gap-3">
 						<svg
@@ -478,52 +502,20 @@
 						{/if}
 					</h2>
 
-					<div class="space-y-3">
-						{#each data.predictions as { prediction, user }, index}
-							<div
-								class="p-4 rounded-lg border transition-colors {prediction.wonCoffee
-									? 'bg-yellow-50 border-yellow-300 dark:bg-yellow-900/20 dark:border-yellow-700'
-									: 'bg-gray-50 border-gray-200 dark:bg-gray-900 dark:border-gray-700'}"
-							>
-								<div class="flex items-start justify-between mb-3">
-									<div class="flex items-center gap-3">
-										<UserAvatar name={user.name} mugshotUrl={user.mugshotUrl} size="sm" />
-										<div>
-											<div class="font-semibold text-gray-900 dark:text-gray-100">
-												{user.name}
-											</div>
-											{#if user.nickname}
-												<div class="text-xs text-gray-500 dark:text-gray-400">
-													"{user.nickname}"
-												</div>
-											{/if}
-										</div>
-									</div>
+					<div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+						<!-- Team names live in the header so they aren't repeated on every row -->
+						<div class="{predictionRowGrid} px-4 py-2 bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+							<div>Player</div>
+							<div class="text-center">{data.game.homeTeam} – {data.game.awayTeam}</div>
+							<div class="{outcomeCellClass} text-right">{outcomeLabel}</div>
+						</div>
 
-									{#if data.game.homeScore !== null && data.game.awayScore !== null}
-										{#if data.game.status === 'finished'}
-											<RankBadge
-												rank={prediction.rank}
-												delta={prediction.delta}
-												wonCoffee={prediction.wonCoffee}
-											/>
-										{:else}
-											<!-- Show live delta and position -->
-											<div class="flex flex-col items-end gap-1">
-												<div class="text-xs font-medium text-gray-500 dark:text-gray-400">
-													#{index + 1}
-												</div>
-												<div class="text-sm font-semibold {index === 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}">
-													{prediction.delta !== null && prediction.delta !== undefined ? `Off by ${prediction.delta}` : ''}
-												</div>
-											</div>
-										{/if}
-									{/if}
-								</div>
-
+						<div class="divide-y divide-gray-200 dark:divide-gray-700">
+							{#each orderedPredictions as { prediction, user }, index}
 								{#if editingPredictionId === prediction.id}
-									<!-- Edit Mode -->
+									<!-- Edit Mode (admin only) -->
 									<form
+										class="px-4 py-3 bg-blue-50 dark:bg-blue-900/20"
 										method="POST"
 										action="?/editPrediction"
 										use:enhance={() => {
@@ -535,6 +527,11 @@
 									>
 										<input type="hidden" name="predictionId" value={prediction.id} />
 										<input type="hidden" name="groupId" value={data.groupId} />
+
+										<div class="flex items-center gap-2.5 mb-3">
+											<UserAvatar name={user.name} mugshotUrl={user.mugshotUrl} size="xs" />
+											<span class="font-semibold text-gray-900 dark:text-gray-100">{user.name}</span>
+										</div>
 
 										<div class="grid grid-cols-2 gap-4 text-sm mb-3">
 											<div>
@@ -578,39 +575,71 @@
 										</div>
 									</form>
 								{:else}
-									<!-- Display Mode -->
-									<div class="grid grid-cols-2 gap-4 text-sm">
-										<div>
-											<div class="text-gray-500 dark:text-gray-400">{data.game.homeTeam}</div>
-											<div class="text-lg font-bold text-gray-900 dark:text-gray-100">
-												{prediction.homeScore}
-											</div>
+									<div
+										class="{predictionRowGrid} px-4 py-2.5 {prediction.wonCoffee
+											? 'bg-yellow-50 dark:bg-yellow-900/20'
+											: user.id === data.user?.id
+												? 'bg-blue-50/60 dark:bg-blue-900/10'
+												: ''}"
+									>
+										<div class="flex items-center gap-2.5 min-w-0">
+											<UserAvatar name={user.name} mugshotUrl={user.mugshotUrl} size="xs" />
+											<span class="font-semibold text-gray-900 dark:text-gray-100 truncate">
+												{user.name}
+											</span>
+											{#if user.nickname}
+												<span class="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 truncate">
+													"{user.nickname}"
+												</span>
+											{/if}
+											{#if data.isAdmin && !data.gameStarted}
+												<button
+													type="button"
+													title="Edit prediction"
+													aria-label="Edit {user.name}'s prediction"
+													on:click={() => startEditPrediction(prediction.id, prediction.homeScore, prediction.awayScore)}
+													class="flex-shrink-0 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+												>
+													<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+													</svg>
+												</button>
+											{/if}
 										</div>
-										<div>
-											<div class="text-gray-500 dark:text-gray-400">{data.game.awayTeam}</div>
-											<div class="text-lg font-bold text-gray-900 dark:text-gray-100">
-												{prediction.awayScore}
-											</div>
+
+										<!-- Fixed-width, tabular digits so the scores line up column-wise -->
+										<div class="flex items-center justify-center gap-1.5 text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+											<span class="w-8 text-right">{prediction.homeScore}</span>
+											<span class="text-gray-400 dark:text-gray-500 font-normal">–</span>
+											<span class="w-8 text-left">{prediction.awayScore}</span>
+										</div>
+
+										<div class={outcomeCellClass}>
+											{#if data.game.status === 'finished' && resultsAvailable}
+												<RankBadge
+													rank={prediction.rank}
+													delta={prediction.delta}
+													wonCoffee={prediction.wonCoffee}
+												/>
+											{:else if resultsAvailable}
+												<div class="flex items-center gap-2">
+													<span class="text-xs font-medium text-gray-500 dark:text-gray-400">
+														#{index + 1}
+													</span>
+													<span class="text-sm font-semibold tabular-nums {index === 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}">
+														{prediction.delta ?? ''}
+													</span>
+												</div>
+											{:else}
+												<span class="text-xs font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
+													{marginLabel(prediction.homeScore, prediction.awayScore)}
+												</span>
+											{/if}
 										</div>
 									</div>
-
-									{#if data.isAdmin && !data.gameStarted}
-										<div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-											<button
-												type="button"
-												on:click={() => startEditPrediction(prediction.id, prediction.homeScore, prediction.awayScore)}
-												class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1"
-											>
-												<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-												</svg>
-												Edit prediction
-											</button>
-										</div>
-									{/if}
 								{/if}
-							</div>
-						{/each}
+							{/each}
+						</div>
 					</div>
 				</div>
 			{:else if data.predictionsLocked && data.predictions.length === 0}
