@@ -17,9 +17,14 @@
 	export let memberCount: number = 0;
 	export let predictedMemberCount: number = 0;
 
+	// A game counts as kicked off once its start time passes, even if an admin
+	// hasn't flipped the status yet -- predictions lock the same way server-side.
+	$: hasKickedOff = game.gameTime !== null && new Date(game.gameTime) <= new Date();
+	$: displayStatus = game.status === 'scheduled' && hasKickedOff ? 'live' : game.status;
+
 	// The phase only matters while picks are being collected — once a game is live
 	// or finished everyone's picks are on show regardless.
-	$: collectingPicks = game.status === 'scheduled' && memberCount > 0;
+	$: collectingPicks = game.status === 'scheduled' && !hasKickedOff && memberCount > 0;
 	$: remainingPicks = Math.max(memberCount - predictedMemberCount, 0);
 	$: picksLockedIn = collectingPicks && remainingPicks === 0;
 
@@ -59,7 +64,7 @@
 		<div class="flex items-center justify-between">
 			<div class="flex-1">
 				<div class="flex items-center gap-3 mb-3">
-					<GameStatus status={game.status} />
+					<GameStatus status={displayStatus} />
 					{#if showPredictionSummary}
 						<span class="text-sm font-medium {picksLockedIn ? 'text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30' : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700'} px-2 py-1 rounded-md">
 							{predictionSummary}
@@ -142,7 +147,7 @@
 		class="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 rounded-xl shadow-md p-5 border border-gray-200 dark:border-gray-700"
 	>
 		<div class="flex items-center gap-3 mb-3">
-			<GameStatus status={game.status} />
+			<GameStatus status={displayStatus} />
 			{#if showPredictionSummary}
 				<span class="text-sm font-medium {picksLockedIn ? 'text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/30' : 'text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700'} px-2 py-1 rounded-md">
 					{predictionSummary}

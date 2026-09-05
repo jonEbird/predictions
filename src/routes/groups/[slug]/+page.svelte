@@ -25,22 +25,23 @@
 		.sort((a, b) => new Date(a.game.gameTime).getTime() - new Date(b.game.gameTime).getTime());
 
 	$: liveGames = data.games
-		.filter((g) => g.game.status === 'live')
+		.filter((g) => {
+			const gameTime = new Date(g.game.gameTime);
+			const now = new Date();
+			// A game counts as live once kickoff passes, even if an admin hasn't
+			// flipped the status yet -- it isn't "finished" until a score is posted.
+			return g.game.status === 'live' || (g.game.status === 'scheduled' && gameTime <= now);
+		})
 		.sort((a, b) => new Date(a.game.gameTime).getTime() - new Date(b.game.gameTime).getTime());
 
-	$: finishedGames = data.games.filter((g) => {
-		const gameTime = new Date(g.game.gameTime);
-		const now = new Date();
-		// Include games that are finished OR scheduled games that have passed
-		return g.game.status === 'finished' || (g.game.status === 'scheduled' && gameTime <= now);
-	});
+	$: finishedGames = data.games.filter((g) => g.game.status === 'finished');
 
 	// Standings and stats only mean something once a game has an actual result.
 	// Before that, the season is "not started" and we showcase the roster instead.
 	$: seasonStarted = data.games.some((g) => g.game.status === 'finished');
 
-	// Only the next game needs a prediction; later ones stay hidden until their turn.
-	$: nextGame = upcomingGames[0];
+	// The next game shouldn't take over until the current one is decided.
+	$: nextGame = liveGames.length === 0 ? upcomingGames[0] : undefined;
 
 	// Pre-season roster reads better alphabetically than in arbitrary all-zero rank order.
 	$: roster = [...data.leaderboard].sort((a, b) => a.user.name.localeCompare(b.user.name));
