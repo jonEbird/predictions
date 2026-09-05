@@ -12,6 +12,7 @@
 	export let form: any;
 
 	let isUpdatingScore = false;
+	let isConfirmingFinal = false;
 	let adminHomeScore = data.game.homeScore?.toString() || '';
 	let adminAwayScore = data.game.awayScore?.toString() || '';
 	let adminStatus = data.game.status;
@@ -189,6 +190,55 @@
 	{:else if form?.message}
 		<div class="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
 			<p class="text-red-800 dark:text-red-200">{form.message}</p>
+		</div>
+	{/if}
+
+	<!-- Confirm Final Score -->
+	{#if data.isAdmin && data.game.status !== 'finished' && data.game.status !== 'canceled' && data.game.homeScore !== null && data.game.awayScore !== null}
+		<div class="mb-6 bg-green-50 dark:bg-green-900/20 border-2 border-green-300 dark:border-green-700 rounded-lg p-6">
+			<h3 class="text-lg font-bold text-green-900 dark:text-green-100 mb-1">
+				Confirm Final Score
+			</h3>
+			<p class="text-sm text-green-800 dark:text-green-200 mb-3">
+				Refresh the page for the latest score before confirming.
+			</p>
+			<p class="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+				{data.game.awayTeam} {data.game.awayScore} — {data.game.homeTeam} {data.game.homeScore}
+			</p>
+
+			<form
+				method="POST"
+				action="?/updateFinalScore"
+				use:enhance={() => {
+					isConfirmingFinal = true;
+					return async ({ update }) => {
+						await update();
+						isConfirmingFinal = false;
+					};
+				}}
+			>
+				<input type="hidden" name="groupId" value={data.groupId} />
+				<input type="hidden" name="homeScore" value={data.game.homeScore} />
+				<input type="hidden" name="awayScore" value={data.game.awayScore} />
+				<input type="hidden" name="status" value="finished" />
+
+				<button
+					type="submit"
+					disabled={isConfirmingFinal}
+					class="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-4 px-4 rounded-lg text-lg transition-colors"
+					on:click={(e) => {
+						if (
+							!confirm(
+								`Lock in final score: ${data.game.awayTeam} ${data.game.awayScore} - ${data.game.homeTeam} ${data.game.homeScore}?\n\nThis reveals predictions and awards coffee wins.`
+							)
+						) {
+							e.preventDefault();
+						}
+					}}
+				>
+					{isConfirmingFinal ? 'Finishing...' : 'Yep, Finish!'}
+				</button>
+			</form>
 		</div>
 	{/if}
 
