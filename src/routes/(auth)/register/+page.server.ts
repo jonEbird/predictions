@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { db } from '$lib/db';
 import { users } from '$lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { hashPassword, createSession, setSessionCookie } from '$lib/server/auth';
+import { hashPassword } from '$lib/server/auth';
 
 // Only admins can access registration page
 export const load: PageServerLoad = async ({ locals }) => {

@@ -1,7 +1,7 @@
 import { redirect, error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/db';
-import { games, predictions, users, groups, groupGames, memberships } from '$lib/db/schema';
+import { games, predictions, users, groups, groupGames, memberships, publicUserColumns } from '$lib/db/schema';
 import { eq, and, sql, desc } from 'drizzle-orm';
 import { getGroupBySlugAndSeason, isUserMemberOfGroup } from '$lib/server/queries/groups';
 import { DEFAULT_GROUP_SLUG } from '$lib/config';
@@ -52,7 +52,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	// Get full leaderboard with detailed stats (only count predictions from finished games with non-null delta)
 	const leaderboardData = await db
 		.select({
-			user: users,
+			user: publicUserColumns,
 			totalPredictions: sql<number>`count(distinct case when ${games.status} = 'finished' and ${predictions.delta} is not null then ${predictions.id} end)`.as('total_predictions'),
 			coffeeWins: sql<number>`sum(case when ${predictions.wonCoffee} = 1 then 1 else 0 end)`.as(
 				'coffee_wins'

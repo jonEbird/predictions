@@ -1,12 +1,19 @@
 import { describe, it, expect, vi } from 'vitest';
 
+/** Rows handed to db.insert().values(), so tests can inspect what got persisted. */
+const insertedRows: any[] = [];
+
 // Mock the database module before importing auth
 vi.mock('$lib/db', () => ({
 	db: {
 		select: vi.fn(),
-		insert: vi.fn(),
+		insert: vi.fn(() => ({
+			values: vi.fn(async (row: any) => {
+				insertedRows.push(row);
+			})
+		})),
 		update: vi.fn(),
-		delete: vi.fn()
+		delete: vi.fn(() => ({ where: vi.fn(async () => undefined) }))
 	}
 }));
 
@@ -52,35 +59,60 @@ describe('Authentication', () => {
 	});
 
 	describe('createSession', () => {
-		it('should create a session token', () => {
-			const userId = 123;
-			const token = createSession(userId);
+		it('should return an opaque token, not the user id', async () => {
+			const token = await createSession(123);
 
-			expect(token).toBeDefined();
 			expect(typeof token).toBe('string');
-			expect(token.length).toBeGreaterThan(0);
+			// The whole point of the change: the token must not be a readable claim
+			// about who you are. Decoding it should not yield a userId.
+			let decoded: unknown;
+			try {
+				decoded = JSON.parse(Buffer.from(token, 'base64').toString());
+			} catch {
+				decoded = null;
+			}
+			expect(decoded).not.toMatchObject({ userId: 123 });
+			expect(token).not.toContain('123');
 		});
 
-		it('should encode user ID in session token', () => {
-			const userId = 456;
-			const token = createSession(userId);
+		it('should carry enough entropy to be unguessable', async () => {
+			const token = await createSession(1);
 
-			// Decode the token to verify it contains the user ID
-			const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
-			expect(decoded.userId).toBe(userId);
-			expect(decoded.createdAt).toBeDefined();
+			// 32 random bytes as base64url
+			expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
 		});
 
-		it('should encode user ID and timestamp in session token', () => {
-			const userId = 789;
-			const token = createSession(userId);
+		it('should never issue the same token twice', async () => {
+			const issued = new Set<string>();
+			for (let i = 0; i < 50; i++) {
+				issued.add(await createSession(1));
+			}
 
-			// Decode the token to verify it contains the user ID and timestamp
-			const decoded = JSON.parse(Buffer.from(token, 'base64').toString());
-			expect(decoded.userId).toBe(userId);
-			expect(decoded.createdAt).toBeDefined();
-			expect(typeof decoded.createdAt).toBe('number');
-			expect(decoded.createdAt).toBeLessThanOrEqual(Date.now());
+			expect(issued.size).toBe(50);
+		});
+
+		it('should store only a hash of the token', async () => {
+			insertedRows.length = 0;
+			const token = await createSession(7);
+
+			expect(insertedRows).toHaveLength(1);
+			const stored = insertedRows[0];
+			expect(stored.userId).toBe(7);
+			expect(stored.tokenHash).not.toBe(token);
+			expect(stored.tokenHash).toMatch(/^[a-f0-9]{64}$/);
+			// The plaintext token must not appear anywhere in the persisted row.
+			expect(JSON.stringify(stored)).not.toContain(token);
+		});
+
+		it('should set the expiry 90 days out', async () => {
+			insertedRows.length = 0;
+			const before = Date.now();
+			await createSession(1);
+
+			const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+			const expiresAt = insertedRows[0].expiresAt.getTime();
+			expect(expiresAt).toBeGreaterThanOrEqual(before + ninetyDays - 5000);
+			expect(expiresAt).toBeLessThanOrEqual(Date.now() + ninetyDays + 5000);
 		});
 	});
 });

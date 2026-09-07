@@ -1,5 +1,5 @@
 import { db } from '$lib/db';
-import { games, groupGames, predictions, users } from '$lib/db/schema';
+import { games, groupGames, predictions, users, publicUserColumns } from '$lib/db/schema';
 import { eq, and, desc, asc, sql, inArray } from 'drizzle-orm';
 
 /**
@@ -49,7 +49,7 @@ export async function getGameWithPredictions(gameId: number, groupId: number) {
 	const gamePredictions = await db
 		.select({
 			prediction: predictions,
-			user: users
+			user: publicUserColumns
 		})
 		.from(predictions)
 		.innerJoin(users, eq(predictions.userId, users.id))

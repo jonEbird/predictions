@@ -1,5 +1,5 @@
 import { db } from '$lib/db';
-import { predictions, games, users, memberships } from '$lib/db/schema';
+import { predictions, games, users, memberships, publicUserColumns } from '$lib/db/schema';
 import { eq, and, sql, desc, asc } from 'drizzle-orm';
 import type { NewPrediction } from '$lib/db/schema';
 
@@ -94,7 +94,7 @@ export async function calculateRankings(gameId: number, groupId: number) {
 	const allPredictions = await db
 		.select({
 			prediction: predictions,
-			user: users,
+			user: publicUserColumns,
 			membership: memberships
 		})
 		.from(predictions)

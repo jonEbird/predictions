@@ -1,5 +1,5 @@
 import { db } from '$lib/db';
-import { groups, memberships, users, games, groupGames, predictions } from '$lib/db/schema';
+import { groups, memberships, users, games, groupGames, predictions, publicUserColumns } from '$lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 /**
@@ -92,7 +92,7 @@ export async function getGroupWithGames(slug: string, season: number) {
 			if (gameItem.game.status === 'finished') {
 				const winners = await db
 					.select({
-						user: users
+						user: publicUserColumns
 					})
 					.from(predictions)
 					.innerJoin(users, eq(predictions.userId, users.id))
@@ -143,7 +143,7 @@ export async function getGroupSeasons(slug: string) {
 export async function getGroupLeaderboard(groupId: number) {
 	const leaderboard = await db
 		.select({
-			user: users,
+			user: publicUserColumns,
 			membership: memberships,
 			coffeeWins: sql<number>`(
 				SELECT COUNT(*)
@@ -224,7 +224,7 @@ export async function isUserGroupAdmin(userId: number, groupId: number): Promise
 export async function getGroupMembers(groupId: number) {
 	return await db
 		.select({
-			user: users,
+			user: publicUserColumns,
 			membership: memberships
 		})
 		.from(memberships)

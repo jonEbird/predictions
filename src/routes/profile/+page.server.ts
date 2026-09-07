@@ -4,6 +4,7 @@ import { db } from '$lib/db';
 import { users } from '$lib/db/schema';
 import { eq } from 'drizzle-orm';
 import bcrypt from 'bcryptjs';
+import { deleteUserSessions, getSessionToken } from '$lib/server/auth';
 
 export const load: PageServerLoad = async ({ locals }) => {
 	// Require authentication
@@ -45,7 +46,8 @@ export const actions: Actions = {
 		}
 	},
 
-	changePassword: async ({ request, locals }) => {
+	changePassword: async (event) => {
+		const { request, locals } = event;
 		if (!locals.user) {
 			return fail(401, { message: 'Not authenticated' });
 		}
@@ -97,6 +99,13 @@ export const actions: Actions = {
 					updatedAt: new Date()
 				})
 				.where(eq(users.id, locals.user.id));
+
+			// Changing a password is how someone locks out a device they no longer
+			// control, so every other session for this user dies with the old one.
+			// Their current browser is spared, so they aren't bounced to the login
+			// form for doing the right thing.
+			const currentToken = getSessionToken(event);
+			await deleteUserSessions(locals.user.id, currentToken);
 
 			return { success: true, message: 'Password changed successfully' };
 		} catch (error) {

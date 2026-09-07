@@ -1,8 +1,8 @@
 <script lang="ts">
-	import type { User } from '$lib/db/schema';
+	import type { SessionUser } from '$lib/db/schema';
 
 	export let leaderboard: Array<{
-		user: User;
+		user: SessionUser;
 		coffeeWins: number;
 		totalPredictions: number;
 		avgDelta: number | null;

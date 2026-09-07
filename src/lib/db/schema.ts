@@ -222,9 +222,67 @@ export const cronJobs = sqliteTable('cron_jobs', {
 		.default(sql`(unixepoch())`)
 });
 
+// ============================================
+// Sessions (server-side login sessions)
+// ============================================
+export const sessions = sqliteTable('sessions', {
+	id: integer('id').primaryKey({ autoIncrement: true }),
+
+	// Only the SHA-256 of the token is stored. A database dump, a backup, or a
+	// leaked copy of the file therefore contains nothing that can be replayed as
+	// a login -- the usable half of the credential only ever lives in the cookie.
+	tokenHash: text('token_hash', { length: 64 }).unique().notNull(),
+
+	userId: integer('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+
+	// Slides forward on use, so anyone who visits during the season is never
+	// signed out, while a session left untouched lapses on its own.
+	expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+
+	// Metadata
+	createdAt: integer('created_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`),
+	lastUsedAt: integer('last_used_at', { mode: 'timestamp' })
+		.notNull()
+		.default(sql`(unixepoch())`)
+});
+
 // Type exports for TypeScript
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+/**
+ * A user as carried on `locals.user` and handed to the browser.
+ *
+ * Deliberately without the password hash: `locals.user` is serialized into the
+ * page payload by the layout load, so anything on it is public to whoever holds
+ * the session. Code that needs the hash (only the login check) reads the row
+ * from the database itself.
+ */
+export type SessionUser = Omit<User, 'passwordHash'>;
+
+/**
+ * The user columns any query may hand to a browser: everything except the
+ * password hash. Selecting the whole `users` table into page data ships the
+ * bcrypt hash with it, so reach for this instead of `user: users`.
+ */
+export const publicUserColumns = {
+	id: users.id,
+	name: users.name,
+	nickname: users.nickname,
+	email: users.email,
+	phoneNumber: users.phoneNumber,
+	mugshotUrl: users.mugshotUrl,
+	emailNotifications: users.emailNotifications,
+	smsNotifications: users.smsNotifications,
+	createdAt: users.createdAt,
+	updatedAt: users.updatedAt,
+	lastLoginAt: users.lastLoginAt,
+	deletedAt: users.deletedAt
+};
 
 export type Group = typeof groups.$inferSelect;
 export type NewGroup = typeof groups.$inferInsert;
@@ -243,3 +301,6 @@ export type NewInGameScore = typeof inGameScores.$inferInsert;
 
 export type CronJob = typeof cronJobs.$inferSelect;
 export type NewCronJob = typeof cronJobs.$inferInsert;
+
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;

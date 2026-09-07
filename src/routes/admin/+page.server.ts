@@ -1,7 +1,7 @@
 import { redirect, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { db } from '$lib/db';
-import { games, groupGames, groups, users, memberships } from '$lib/db/schema';
+import { games, groupGames, groups, users, memberships, publicUserColumns } from '$lib/db/schema';
 import { eq, and, asc, desc, gt } from 'drizzle-orm';
 import { getGroupSeasons, getGroupBySlugAndSeason, isUserGroupAdmin } from '$lib/server/queries/groups';
 import { DEFAULT_GROUP_SLUG } from '$lib/config';
@@ -71,7 +71,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	// Get all group members for messaging
 	const members = await db
 		.select({
-			user: users,
+			user: publicUserColumns,
 			membership: memberships
 		})
 		.from(memberships)
@@ -267,7 +267,7 @@ export const actions: Actions = {
 				// Get admin's email and phone for dev mode filtering
 				const members = await db
 					.select({
-						user: users,
+						user: publicUserColumns,
 						membership: memberships
 					})
 					.from(memberships)
@@ -345,7 +345,7 @@ export const actions: Actions = {
 			// Get recipients based on filter
 			const memberQuery = db
 				.select({
-					user: users,
+					user: publicUserColumns,
 					membership: memberships
 				})
 				.from(memberships)
@@ -481,7 +481,7 @@ export const actions: Actions = {
 			// Get recipients based on filter
 			const members = await db
 				.select({
-					user: users,
+					user: publicUserColumns,
 					membership: memberships
 				})
 				.from(memberships)

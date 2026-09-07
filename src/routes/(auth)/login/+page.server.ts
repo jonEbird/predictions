@@ -4,6 +4,12 @@ import { db } from '$lib/db';
 import { users } from '$lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { verifyPassword, createSession, setSessionCookie } from '$lib/server/auth';
+import {
+	loginCooldownRemaining,
+	recordFailedLogin,
+	clearFailedLogins,
+	describeCooldown
+} from '$lib/server/login-throttle';
 
 export const actions: Actions = {
 	default: async (event) => {
@@ -15,22 +21,33 @@ export const actions: Actions = {
 			return fail(400, { message: 'Email and password are required' });
 		}
 
+		const cooldown = loginCooldownRemaining(email, event.getClientAddress());
+		if (cooldown > 0) {
+			return fail(429, {
+				message: `Too many failed attempts. Try again in ${describeCooldown(cooldown)}.`
+			});
+		}
+
 		// Find user by email
 		const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
-		if (!user) {
-			return fail(400, { message: 'Invalid email or password' });
+		// A missing user and a wrong password are reported identically, so the form
+		// can't be used to find out who has an account.
+		const validPassword = user ? await verifyPassword(password, user.passwordHash) : false;
+
+		if (!user || !validPassword) {
+			const owed = recordFailedLogin(email, event.getClientAddress());
+			return fail(400, {
+				message: owed > 0
+					? `Invalid email or password. Too many failed attempts -- try again in ${describeCooldown(owed)}.`
+					: 'Invalid email or password'
+			});
 		}
 
-		// Verify password
-		const validPassword = await verifyPassword(password, user.passwordHash);
-
-		if (!validPassword) {
-			return fail(400, { message: 'Invalid email or password' });
-		}
+		clearFailedLogins(email, event.getClientAddress());
 
 		// Create session
-		const sessionToken = createSession(user.id);
+		const sessionToken = await createSession(user.id);
 		setSessionCookie(event, sessionToken);
 
 		// Update last login

@@ -1,4 +1,4 @@
-import type { User, Group, Game, Prediction } from '$lib/db/schema';
+import type { SessionUser, Group, Game, Prediction } from '$lib/db/schema';
 import { isUserGroupAdmin, isUserMemberOfGroup } from '../queries/groups';
 import { hasGameStarted } from '../queries/games';
 import { haveAllMembersPredicted } from '../queries/predictions';
@@ -29,7 +29,7 @@ export async function arePredictionsLocked(gameId: number, groupId: number): Pro
  * 2. Predictions must not be locked yet
  */
 export async function canUserPredict(
-	user: User,
+	user: SessionUser,
 	game: Game,
 	groupId: number
 ): Promise<boolean> {
@@ -49,7 +49,7 @@ export async function canUserPredict(
  * 2. Predictions must not be locked yet
  */
 export async function canEditPrediction(
-	user: User,
+	user: SessionUser,
 	prediction: Prediction,
 	game: Game
 ): Promise<boolean> {
@@ -64,7 +64,7 @@ export async function canEditPrediction(
 /**
  * Check if a user is an admin of a group
  */
-export async function isUserAdmin(user: User, group: Group): Promise<boolean> {
+export async function isUserAdmin(user: SessionUser, group: Group): Promise<boolean> {
 	return await isUserGroupAdmin(user.id, group.id);
 }
 
@@ -75,7 +75,7 @@ export async function isUserAdmin(user: User, group: Group): Promise<boolean> {
  * 2. Predictions are hidden until they lock
  */
 export async function canViewPredictions(
-	user: User,
+	user: SessionUser,
 	game: Game,
 	groupId: number
 ): Promise<boolean> {
@@ -96,7 +96,7 @@ export async function canViewPredictions(
  * 2. Game must have started
  */
 export async function canPostFinalScore(
-	user: User,
+	user: SessionUser,
 	game: Game,
 	groupId: number
 ): Promise<boolean> {
@@ -115,7 +115,7 @@ export async function canPostFinalScore(
  * Rules:
  * 1. User must be an admin of at least one group
  */
-export async function canCreateGame(user: User, groupId: number): Promise<boolean> {
+export async function canCreateGame(user: SessionUser, groupId: number): Promise<boolean> {
 	return await isUserGroupAdmin(user.id, groupId);
 }
 
@@ -124,7 +124,7 @@ export async function canCreateGame(user: User, groupId: number): Promise<boolea
  * Rules:
  * 1. User must be an admin of the group
  */
-export async function canSendGroupMessages(user: User, groupId: number): Promise<boolean> {
+export async function canSendGroupMessages(user: SessionUser, groupId: number): Promise<boolean> {
 	return await isUserGroupAdmin(user.id, groupId);
 }
 
@@ -133,6 +133,6 @@ export async function canSendGroupMessages(user: User, groupId: number): Promise
  * Rules:
  * 1. User must be the owner of the group
  */
-export async function canManageGroupMembers(user: User, group: Group): Promise<boolean> {
+export async function canManageGroupMembers(user: SessionUser, group: Group): Promise<boolean> {
 	return user.id === group.ownerId;
 }

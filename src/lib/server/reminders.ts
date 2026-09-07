@@ -1,5 +1,5 @@
 import { db } from '$lib/db';
-import { games, predictions, users, memberships, groups, groupGames } from '$lib/db/schema';
+import { games, predictions, users, memberships, groups, groupGames, publicUserColumns } from '$lib/db/schema';
 import { eq, and, gte, lte, isNull } from 'drizzle-orm';
 import { sendBulkEmail, createEmailTemplate } from './email';
 import { sendPersonalizedSMS } from './sms';
@@ -38,7 +38,7 @@ async function getMembersWithoutPredictions(gameId: number, groupId: number) {
 	// Get all group members
 	const allMembers = await db
 		.select({
-			user: users,
+			user: publicUserColumns,
 			membership: memberships
 		})
 		.from(memberships)

@@ -1,12 +1,12 @@
 import { db } from '$lib/db';
-import { games, predictions, users, memberships, groups } from '$lib/db/schema';
+import { games, predictions, users, memberships, groups, publicUserColumns, type SessionUser } from '$lib/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { sendBulkEmail, createEmailTemplate } from './email';
 import { sendPersonalizedSMS } from './sms';
 
 interface PredictionWithUser {
 	prediction: typeof predictions.$inferSelect;
-	user: typeof users.$inferSelect;
+	user: SessionUser;
 	membership: typeof memberships.$inferSelect;
 }
 
@@ -168,7 +168,7 @@ async function getGameResultsData(gameId: number, groupId: number): Promise<Game
 	const allPredictions = await db
 		.select({
 			prediction: predictions,
-			user: users,
+			user: publicUserColumns,
 			membership: memberships
 		})
 		.from(predictions)
