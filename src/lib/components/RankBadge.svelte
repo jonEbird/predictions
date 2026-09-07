@@ -3,6 +3,8 @@
 	export let delta: number | null = null;
 	export let previousRank: number | null = null;
 	export let wonCoffee: boolean | null | undefined = false;
+	/** Why identical predictions didn't land on the same rank, if they tied. */
+	export let tiebreak: string | null = null;
 
 	function getRankDisplay(rank: number | null): string {
 		if (rank === null) return '-';
@@ -60,6 +62,16 @@
 	>
 		{getRankDisplay(rank)}
 	</span>
+
+	{#if tiebreak}
+		<span
+			class="inline-flex items-center justify-center w-4 h-4 rounded-full border border-gray-400 dark:border-gray-500 text-[10px] font-bold text-gray-500 dark:text-gray-400 cursor-help"
+			title={tiebreak}
+			aria-label={tiebreak}
+		>
+			?
+		</span>
+	{/if}
 
 	{#if rankDelta}
 		<span class="text-sm" class:text-green-600={rankDelta.startsWith('+')} class:text-red-600={rankDelta.startsWith('-')}>

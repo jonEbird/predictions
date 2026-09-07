@@ -1,9 +1,15 @@
 import { redirect, error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { getGameById, getGameWithPredictions, hasGameStarted } from '$lib/server/queries/games';
-import { getUserPrediction, createPrediction, updatePrediction } from '$lib/server/queries/predictions';
+import {
+	getUserPrediction,
+	createPrediction,
+	updatePrediction,
+	calculateRankings
+} from '$lib/server/queries/predictions';
 import { isUserMemberOfGroup, getGroupMembers, isUserGroupAdmin } from '$lib/server/queries/groups';
 import { canUserPredict, arePredictionsLocked } from '$lib/server/game-logic/permissions';
+import { calculateDelta, sortPredictions, tiebreakNotes } from '$lib/server/game-logic/rankings';
 import { db } from '$lib/db';
 import { predictions, games } from '$lib/db/schema';
 import { and, eq } from 'drizzle-orm';
@@ -76,34 +82,44 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 
 	// Calculate deltas if game has scores entered
 	let predictionsWithDeltas = predictionsLocked || isAdmin ? gameData.predictions : [];
+	let tiebreaks: Record<number, string> = {};
 
 	if (
 		(predictionsLocked || isAdmin) &&
 		gameData.game.homeScore !== null &&
 		gameData.game.awayScore !== null
 	) {
-		// Calculate delta for each prediction
-		predictionsWithDeltas = gameData.predictions.map(({ prediction, user }) => {
-			const homeDiff = Math.abs(prediction.homeScore - gameData.game.homeScore!);
-			const awayDiff = Math.abs(prediction.awayScore - gameData.game.awayScore!);
-			const calculatedDelta = homeDiff + awayDiff;
+		const finalScore = {
+			homeScore: gameData.game.homeScore,
+			awayScore: gameData.game.awayScore
+		};
 
-			return {
-				prediction: {
-					...prediction,
-					delta: calculatedDelta
-				},
+		// Recalculated rather than read from the row: a live game has a score but
+		// no stored delta yet, and an admin can still correct a final score. The
+		// ordering is the same one the finisher writes to the rank column, so the
+		// table can't disagree with the ranks it's displaying.
+		const ordered = sortPredictions(
+			gameData.predictions.map(({ prediction, user }) => ({
+				...prediction,
+				delta: calculateDelta(prediction, finalScore),
+				name: user.name,
 				user
-			};
-		});
+			})),
+			gameData.game
+		);
 
-		// Sort by delta (lowest = best)
-		predictionsWithDeltas.sort((a, b) => a.prediction.delta! - b.prediction.delta!);
+		predictionsWithDeltas = ordered.map(({ user, name: _name, ...prediction }) => ({
+			prediction,
+			user
+		}));
+
+		tiebreaks = Object.fromEntries(tiebreakNotes(ordered, gameData.game));
 	}
 
 	return {
 		game: gameData.game,
 		predictions: predictionsWithDeltas,
+		tiebreaks,
 		userPrediction,
 		canPredict,
 		gameStarted,
@@ -220,46 +236,7 @@ export const actions: Actions = {
 
 			// Calculate prediction results if status is 'finished'
 			if (status === 'finished') {
-				// Get all predictions for this game and group
-				const gamePredictions = await db
-					.select()
-					.from(predictions)
-					.where(and(eq(predictions.gameId, gameId), eq(predictions.groupId, groupId)));
-
-				// Calculate delta for each prediction
-				const predictionsWithDelta = gamePredictions.map((pred) => {
-					const homeDiff = Math.abs(pred.homeScore - homeScore);
-					const awayDiff = Math.abs(pred.awayScore - awayScore);
-					const delta = homeDiff + awayDiff;
-
-					return {
-						...pred,
-						delta
-					};
-				});
-
-				// Sort by delta (lowest = best)
-				predictionsWithDelta.sort((a, b) => a.delta - b.delta);
-
-				// Assign ranks and determine winners
-				const bestDelta = predictionsWithDelta[0]?.delta;
-
-				for (let i = 0; i < predictionsWithDelta.length; i++) {
-					const pred = predictionsWithDelta[i];
-					const rank = i + 1;
-					const wonCoffee = pred.delta === bestDelta;
-
-					// Update prediction with delta, rank, and wonCoffee
-					await db
-						.update(predictions)
-						.set({
-							delta: pred.delta,
-							rank,
-							wonCoffee,
-							updatedAt: new Date()
-						})
-						.where(eq(predictions.id, pred.id));
-				}
+				await calculateRankings(gameId, groupId);
 			}
 
 			return { success: true, message: 'Final score updated successfully' };

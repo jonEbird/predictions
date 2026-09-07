@@ -1,6 +1,7 @@
 import { db } from '$lib/db';
 import { groups, memberships, users, games, groupGames, predictions, publicUserColumns } from '$lib/db/schema';
 import { eq, and, desc, sql } from 'drizzle-orm';
+import { rankStandings } from '$lib/server/game-logic/rankings';
 
 /**
  * Get all groups that a user belongs to
@@ -137,8 +138,11 @@ export async function getGroupSeasons(slug: string) {
 }
 
 /**
- * Get leaderboard for a specific group
- * Calculates total coffee wins and shows members ranked
+ * Get leaderboard for a specific group, ranked best-first.
+ *
+ * Coffee wins decide the standings and average delta breaks the tie; members
+ * with nothing scored yet sort last instead of riding a 0-0 tie to the top.
+ * Ranks are Olympic — dead-even players share a place and the next place skips.
  */
 export async function getGroupLeaderboard(groupId: number) {
 	const leaderboard = await db
@@ -158,7 +162,7 @@ export async function getGroupLeaderboard(groupId: number) {
 				WHERE p.user_id = ${users.id}
 				AND p.group_id = ${groupId}
 			)`,
-			avgDelta: sql<number>`(
+			avgDelta: sql<number | null>`(
 				SELECT AVG(p.delta)
 				FROM ${predictions} p
 				JOIN ${games} g ON p.game_id = g.id
@@ -171,17 +175,11 @@ export async function getGroupLeaderboard(groupId: number) {
 		.from(memberships)
 		.innerJoin(users, eq(memberships.userId, users.id))
 		.where(eq(memberships.groupId, groupId))
-		.orderBy(
-			desc(sql<number>`(
-				SELECT COUNT(*)
-				FROM ${predictions} p
-				WHERE p.user_id = ${users.id}
-				AND p.group_id = ${groupId}
-				AND p.won_coffee = 1
-			)`)
-		);
+		// Name order only settles players the ranking considers identical --
+		// rankStandings sorts stably on top of it.
+		.orderBy(users.name);
 
-	return leaderboard;
+	return rankStandings(leaderboard);
 }
 
 /**

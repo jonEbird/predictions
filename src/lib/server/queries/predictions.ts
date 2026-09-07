@@ -1,7 +1,8 @@
 import { db } from '$lib/db';
-import { predictions, games, users, memberships, publicUserColumns } from '$lib/db/schema';
+import { predictions, games, memberships } from '$lib/db/schema';
 import { eq, and, sql, desc, asc } from 'drizzle-orm';
 import type { NewPrediction } from '$lib/db/schema';
+import { calculateDelta, sortPredictions } from '$lib/server/game-logic/rankings';
 
 /**
  * Create a new prediction
@@ -76,8 +77,13 @@ export async function getUserPrediction(userId: number, gameId: number, groupId:
 }
 
 /**
- * Calculate rankings for a finished game
- * This updates the rank, delta, and wonCoffee fields for all predictions
+ * Calculate rankings for a finished game.
+ *
+ * The single writer of rank/delta/wonCoffee: every path that finishes a game
+ * goes through here so the results can't disagree with each other. Ranks are a
+ * strict 1..n — a shared delta is broken by who picked the winning side and
+ * then by who locked their pick in first — and at most one prediction is
+ * flagged wonCoffee, because only one person collects.
  */
 export async function calculateRankings(gameId: number, groupId: number) {
 	// Get the game final score
@@ -87,86 +93,54 @@ export async function calculateRankings(gameId: number, groupId: number) {
 		throw new Error('Game has no final score');
 	}
 
-	const finalHomeScore = game[0].homeScore;
-	const finalAwayScore = game[0].awayScore;
+	const finalScore = { homeScore: game[0].homeScore, awayScore: game[0].awayScore };
 
 	// Get all predictions for this game
 	const allPredictions = await db
 		.select({
 			prediction: predictions,
-			user: publicUserColumns,
 			membership: memberships
 		})
 		.from(predictions)
-		.innerJoin(users, eq(predictions.userId, users.id))
 		.innerJoin(
 			memberships,
-			and(eq(memberships.userId, users.id), eq(memberships.groupId, groupId))
+			and(
+				eq(memberships.userId, predictions.userId),
+				eq(memberships.groupId, predictions.groupId)
+			)
 		)
 		.where(and(eq(predictions.gameId, gameId), eq(predictions.groupId, groupId)));
 
-	// Calculate delta and determine if they picked the winner
-	const predictionsWithDelta = allPredictions.map((p) => {
-		const delta =
-			Math.abs(finalHomeScore - p.prediction.homeScore) +
-			Math.abs(finalAwayScore - p.prediction.awayScore);
-
-		// Did they pick the correct winner?
-		const actualWinner =
-			finalHomeScore > finalAwayScore ? 'home' : finalHomeScore < finalAwayScore ? 'away' : 'tie';
-		const predictedWinner =
-			p.prediction.homeScore > p.prediction.awayScore
-				? 'home'
-				: p.prediction.homeScore < p.prediction.awayScore
-					? 'away'
-					: 'tie';
-		const pickedWinner = actualWinner === predictedWinner;
-
-		return {
-			...p,
-			delta,
-			pickedWinner,
+	const ranked = sortPredictions(
+		allPredictions.map((p) => ({
+			id: p.prediction.id,
+			homeScore: p.prediction.homeScore,
+			awayScore: p.prediction.awayScore,
+			createdAt: p.prediction.createdAt,
+			delta: calculateDelta(p.prediction, finalScore),
 			isBetting: p.membership.betting
-		};
-	});
+		})),
+		finalScore
+	);
 
-	// Sort by delta (lower is better), then by picked winner, then by betting status
-	predictionsWithDelta.sort((a, b) => {
-		// First, sort by delta
-		if (a.delta !== b.delta) return a.delta - b.delta;
+	// Coffee is only on the line between members who are betting this season.
+	const coffeeWinnerId = ranked.find((p) => p.isBetting)?.id ?? null;
 
-		// If delta is tied, those who picked the winner rank higher
-		if (a.pickedWinner && !b.pickedWinner) return -1;
-		if (!a.pickedWinner && b.pickedWinner) return 1;
-
-		return 0;
-	});
-
-	// Find first place among betters (for coffee winner)
-	let coffeeWinnerId: number | null = null;
-	for (const p of predictionsWithDelta) {
-		if (p.isBetting) {
-			coffeeWinnerId = p.prediction.id;
-			break;
-		}
-	}
-
-	// Update each prediction with rank, delta, and wonCoffee
-	for (let i = 0; i < predictionsWithDelta.length; i++) {
-		const p = predictionsWithDelta[i];
+	for (let i = 0; i < ranked.length; i++) {
+		const p = ranked[i];
 
 		await db
 			.update(predictions)
 			.set({
 				rank: i + 1,
 				delta: p.delta,
-				wonCoffee: p.prediction.id === coffeeWinnerId,
+				wonCoffee: p.id === coffeeWinnerId,
 				updatedAt: new Date()
 			})
-			.where(eq(predictions.id, p.prediction.id));
+			.where(eq(predictions.id, p.id));
 	}
 
-	return predictionsWithDelta.length;
+	return ranked.length;
 }
 
 /**

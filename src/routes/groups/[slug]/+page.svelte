@@ -189,10 +189,10 @@
 				<div class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
 					<div class="text-sm text-gray-600 dark:text-gray-400 mb-2">🥇 Top 3</div>
 					<div class="space-y-1">
-						{#each data.leaderboard.slice(0, 3) as entry, index}
+						{#each data.leaderboard.slice(0, 3) as entry}
 							<div class="text-sm flex items-center justify-between">
 								<span class="text-gray-900 dark:text-gray-100">
-									{index + 1}. {entry.user.name}
+									{entry.rank}. {entry.user.name}
 								</span>
 								<span class="text-gray-600 dark:text-gray-400">
 									{entry.coffeeWins} ☕
@@ -283,19 +283,19 @@
 
 			<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
 				<!-- Top 3 Podium -->
-				{#each data.leaderboard.slice(0, 3) as entry, index}
+				{#each data.leaderboard.slice(0, 3) as entry}
 					<a
 						href="/users/{entry.user.id}/stats?groupId={data.group.id}"
-						class="text-center p-6 rounded-xl transition-all duration-300 hover:scale-105 shadow-md hover:shadow-xl {index === 0
+						class="text-center p-6 rounded-xl transition-all duration-300 hover:scale-105 shadow-md hover:shadow-xl {entry.rank === 1
 							? 'ring-2'
 							: 'bg-white dark:bg-gray-800'}"
-						style={index === 0 ? `background: linear-gradient(135deg, ${primaryColor}15 0%, ${accentColor}10 100%); ring-color: ${accentColor};` : ''}
+						style={entry.rank === 1 ? `background: linear-gradient(135deg, ${primaryColor}15 0%, ${accentColor}10 100%); ring-color: ${accentColor};` : ''}
 					>
 						<div class="flex justify-center mb-3">
 							<UserAvatar name={entry.user.name} mugshotUrl={entry.user.mugshotUrl} size="lg" />
 						</div>
 						<div class="text-4xl mb-2">
-							{#if index === 0}🥇{:else if index === 1}🥈{:else}🥉{/if}
+							{#if entry.rank === 1}🥇{:else if entry.rank === 2}🥈{:else}🥉{/if}
 						</div>
 						<div class="font-bold text-lg text-gray-900 dark:text-gray-100">
 							{entry.user.name}
@@ -306,7 +306,7 @@
 							</div>
 						{/if}
 						<div class="mt-3 space-y-1">
-							<div class="text-2xl font-bold" style="color: {index === 0 ? accentColor : '#D97706'};">
+							<div class="text-2xl font-bold" style="color: {entry.rank === 1 ? accentColor : '#D97706'};">
 								{entry.coffeeWins} ☕
 							</div>
 							<div class="text-sm text-gray-600 dark:text-gray-400">
@@ -326,13 +326,13 @@
 			{#if data.leaderboard.length > 3}
 				<div class="mt-8 pt-8 border-t-2 border-gray-200 dark:border-gray-700">
 					<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-						{#each data.leaderboard.slice(3) as entry, index}
+						{#each data.leaderboard.slice(3) as entry}
 							<a
 								href="/users/{entry.user.id}/stats?groupId={data.group.id}"
 								class="flex items-center gap-4 p-4 bg-white dark:bg-gray-800 rounded-xl hover:shadow-md transition-all duration-200 hover:scale-102 border border-gray-100 dark:border-gray-700"
 							>
 								<div class="text-xl font-bold text-gray-400 dark:text-gray-500 w-10 text-center">
-									#{index + 4}
+									#{entry.rank}
 								</div>
 								<UserAvatar name={entry.user.name} mugshotUrl={entry.user.mugshotUrl} size="sm" />
 								<div class="flex-1 min-w-0">

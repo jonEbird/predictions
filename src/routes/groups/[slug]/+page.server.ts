@@ -35,16 +35,17 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		}
 	}
 
-	// Get leaderboard
+	// Get leaderboard (already ranked best-first)
 	const leaderboard = await getGroupLeaderboard(groupData.group.id);
 
 	// Calculate stats preview data
 	const currentLeader = leaderboard[0];
 	// Only calculate user position if user is logged in
-	const userPosition = locals.user
-		? leaderboard.findIndex(entry => entry.user.id === locals.user!.id) + 1
-		: 0;
-	const coffeeLeader = [...leaderboard].sort((a, b) => b.coffeeWins - a.coffeeWins)[0];
+	const userEntry = locals.user
+		? leaderboard.find((entry) => entry.user.id === locals.user!.id)
+		: undefined;
+	// Coffee wins are the leaderboard's primary sort, so the leader holds the most.
+	const coffeeLeader = currentLeader?.coffeeWins ? currentLeader : null;
 
 	// Get all available seasons for this group
 	const availableSeasons = await getGroupSeasons(slug);
@@ -57,7 +58,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		currentSeason: season,
 		statsPreview: {
 			currentLeader,
-			userPosition,
+			userPosition: userEntry?.rank ?? 0,
 			coffeeLeader,
 			totalPlayers: leaderboard.length
 		}

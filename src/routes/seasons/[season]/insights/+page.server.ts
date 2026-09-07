@@ -74,7 +74,9 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		.leftJoin(games, eq(predictions.gameId, games.id))
 		.where(eq(memberships.groupId, groupId))
 		.groupBy(users.id)
-		.orderBy(desc(sql`coffee_wins`), sql`avg_delta`);
+		// Matches the season standings: coffee wins, then accuracy, with members
+		// who have nothing scored yet last (SQLite would otherwise sort NULL first).
+		.orderBy(desc(sql`coffee_wins`), sql`avg_delta is null`, sql`avg_delta`, users.name);
 
 	// Get game-by-game performance data for each user
 	const gamePerformance = await db

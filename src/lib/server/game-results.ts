@@ -3,6 +3,7 @@ import { games, predictions, users, memberships, groups, publicUserColumns, type
 import { eq, and, asc } from 'drizzle-orm';
 import { sendBulkEmail, createEmailTemplate } from './email';
 import { sendPersonalizedSMS } from './sms';
+import { calculateRankings } from './queries/predictions';
 
 interface PredictionWithUser {
 	prediction: typeof predictions.$inferSelect;
@@ -53,91 +54,6 @@ const LOSER_MESSAGES = [
 
 function randomChoice<T>(arr: T[]): T {
 	return arr[Math.floor(Math.random() * arr.length)];
-}
-
-/**
- * Calculate delta (points off) for a prediction
- */
-function calculateDelta(
-	predictedHome: number,
-	predictedAway: number,
-	actualHome: number,
-	actualAway: number
-): number {
-	return Math.abs(predictedHome - actualHome) + Math.abs(predictedAway - actualAway);
-}
-
-/**
- * Update prediction deltas and ranks for a finished game
- */
-async function updatePredictionStats(gameId: number, groupId: number): Promise<void> {
-	// Get the game scores
-	const game = await db
-		.select()
-		.from(games)
-		.where(eq(games.id, gameId))
-		.limit(1);
-
-	if (!game[0] || game[0].homeScore === null || game[0].awayScore === null) {
-		throw new Error('Game scores not available');
-	}
-
-	const { homeScore: actualHome, awayScore: actualAway } = game[0];
-
-	// Get all predictions for this game in this group
-	const gamePredictions = await db
-		.select()
-		.from(predictions)
-		.where(and(eq(predictions.gameId, gameId), eq(predictions.groupId, groupId)));
-
-	// Calculate deltas
-	const predictionsWithDeltas = gamePredictions.map((pred) => ({
-		...pred,
-		calculatedDelta: calculateDelta(pred.homeScore, pred.awayScore, actualHome, actualAway)
-	}));
-
-	// Sort by delta (ascending) to determine ranks
-	predictionsWithDeltas.sort((a, b) => a.calculatedDelta - b.calculatedDelta);
-
-	// Update each prediction with delta and rank
-	for (let i = 0; i < predictionsWithDeltas.length; i++) {
-		const pred = predictionsWithDeltas[i];
-		await db
-			.update(predictions)
-			.set({
-				delta: pred.calculatedDelta,
-				rank: i + 1,
-				wonCoffee: false, // Will update this next
-				updatedAt: new Date()
-			})
-			.where(eq(predictions.id, pred.id));
-	}
-
-	// Find coffee winner (best among betting members)
-	const bettingMembers = await db
-		.select({
-			prediction: predictions,
-			membership: memberships
-		})
-		.from(predictions)
-		.innerJoin(memberships, and(
-			eq(predictions.userId, memberships.userId),
-			eq(predictions.groupId, memberships.groupId)
-		))
-		.where(and(
-			eq(predictions.gameId, gameId),
-			eq(predictions.groupId, groupId),
-			eq(memberships.betting, true)
-		))
-		.orderBy(asc(predictions.delta));
-
-	if (bettingMembers.length > 0) {
-		const coffeeWinnerId = bettingMembers[0].prediction.id;
-		await db
-			.update(predictions)
-			.set({ wonCoffee: true })
-			.where(eq(predictions.id, coffeeWinnerId));
-	}
 }
 
 /**
@@ -327,7 +243,7 @@ export async function sendGameResultNotifications(
 
 	try {
 		// Update prediction stats first
-		await updatePredictionStats(gameId, groupId);
+		await calculateRankings(gameId, groupId);
 
 		// Get game results data
 		const data = await getGameResultsData(gameId, groupId);

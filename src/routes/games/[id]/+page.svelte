@@ -160,22 +160,24 @@
 		</div>
 
 		{#if data.game.status === 'finished' && data.predictions.length > 0}
-			{@const winners = data.predictions.filter((p) => p.prediction.wonCoffee)}
-			{#if winners.length > 0}
+			{@const coffeeWinner = data.predictions.find((p) => p.prediction.wonCoffee)}
+			{#if coffeeWinner}
 				<div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
 					<div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-						{winners.length === 1 ? 'Winner' : 'Winners'}:
+						Winner:
 					</div>
 					<div class="flex flex-wrap gap-2">
-						{#each winners as { user }}
-							<div class="flex items-center gap-2 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
-								<UserAvatar name={user.name} mugshotUrl={user.mugshotUrl} size="xs" />
-								<span class="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
-									{user.name}
-								</span>
-								<span class="text-lg">☕</span>
-							</div>
-						{/each}
+						<div class="flex items-center gap-2 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 rounded-full">
+							<UserAvatar
+								name={coffeeWinner.user.name}
+								mugshotUrl={coffeeWinner.user.mugshotUrl}
+								size="xs"
+							/>
+							<span class="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
+								{coffeeWinner.user.name}
+							</span>
+							<span class="text-lg">☕</span>
+						</div>
 					</div>
 				</div>
 			{/if}
@@ -670,6 +672,7 @@
 													rank={prediction.rank}
 													delta={prediction.delta}
 													wonCoffee={prediction.wonCoffee}
+													tiebreak={data.tiebreaks[prediction.id] ?? null}
 												/>
 											{:else if resultsAvailable}
 												<div class="flex items-center gap-2">
