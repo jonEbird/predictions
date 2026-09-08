@@ -97,6 +97,19 @@
 					</li>
 				</ol>
 
+				<figure class="my-6">
+					<img
+						src="/twilio/optin-1-profile-consent.png"
+						alt="The {SITE_NAME} profile page showing the SMS consent checkbox, unchecked by default, with the full disclosure text beneath it."
+						class="w-full rounded-md border border-gray-200 dark:border-gray-700"
+					/>
+					<figcaption class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+						The opt-in exactly as a member sees it. The profile page itself requires signing in,
+						so this screenshot is published here for reference. The phone number is partially
+						redacted; nothing else is altered.
+					</figcaption>
+				</figure>
+
 				<div
 					class="mt-4 p-4 bg-red-50 dark:bg-red-950/30 border-l-4 border-red-700 dark:border-red-600 rounded-r-md"
 				>
