@@ -265,17 +265,32 @@ export type NewUser = typeof users.$inferInsert;
 export type SessionUser = Omit<User, 'passwordHash'>;
 
 /**
- * The user columns any query may hand to a browser: everything except the
- * password hash. Selecting the whole `users` table into page data ships the
- * bcrypt hash with it, so reach for this instead of `user: users`.
+ * The user columns safe to render for *other* members: identity only, no
+ * contact details. Public pages serialize their load data into the page
+ * payload, so anything selected here is readable by anyone who fetches the
+ * HTML -- signed in or not. Reach for this instead of `user: users`.
  */
 export const publicUserColumns = {
 	id: users.id,
 	name: users.name,
 	nickname: users.nickname,
+	mugshotUrl: users.mugshotUrl
+};
+
+/** A user as rendered for other members: the shape of `publicUserColumns`. */
+export type PublicUser = Pick<User, 'id' | 'name' | 'nickname' | 'mugshotUrl'>;
+
+/**
+ * Adds the contact details and preferences on top of the public columns.
+ *
+ * Server-side use only: notification delivery, the admin console, and the
+ * viewer's own session record. Never select this into data a page hands to the
+ * browser for members other than the viewer.
+ */
+export const contactUserColumns = {
+	...publicUserColumns,
 	email: users.email,
 	phoneNumber: users.phoneNumber,
-	mugshotUrl: users.mugshotUrl,
 	emailNotifications: users.emailNotifications,
 	smsNotifications: users.smsNotifications,
 	createdAt: users.createdAt,

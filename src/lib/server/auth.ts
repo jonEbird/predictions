@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { randomBytes, createHash } from 'node:crypto';
 import { db } from '$lib/db';
-import { publicUserColumns, sessions, users, type SessionUser } from '$lib/db/schema';
+import { contactUserColumns, sessions, users, type SessionUser } from '$lib/db/schema';
 import { and, eq, lt, ne } from 'drizzle-orm';
 import type { RequestEvent } from '@sveltejs/kit';
 
@@ -79,7 +79,7 @@ export async function createSession(userId: number): Promise<string> {
  */
 export async function getUserFromSession(sessionToken: string): Promise<SessionUser | null> {
 	const [row] = await db
-		.select({ session: sessions, user: publicUserColumns })
+		.select({ session: sessions, user: contactUserColumns })
 		.from(sessions)
 		.innerJoin(users, eq(sessions.userId, users.id))
 		.where(eq(sessions.tokenHash, hashSessionToken(sessionToken)))

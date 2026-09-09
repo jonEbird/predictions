@@ -1,5 +1,5 @@
 import { db } from '$lib/db';
-import { games, predictions, users, memberships, groups, publicUserColumns, type SessionUser } from '$lib/db/schema';
+import { games, predictions, users, memberships, groups, contactUserColumns, type SessionUser } from '$lib/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { sendBulkEmail, createEmailTemplate } from './email';
 import { sendPersonalizedSMS } from './sms';
@@ -84,7 +84,7 @@ async function getGameResultsData(gameId: number, groupId: number): Promise<Game
 	const allPredictions = await db
 		.select({
 			prediction: predictions,
-			user: publicUserColumns,
+			user: contactUserColumns,
 			membership: memberships
 		})
 		.from(predictions)

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Game, SessionUser } from '$lib/db/schema';
+	import type { Game, PublicUser } from '$lib/db/schema';
 	import GameStatus from './GameStatus.svelte';
 	import UserAvatar from './UserAvatar.svelte';
 	import { formatET, easternAbbreviation } from '$lib/datetime';
@@ -7,7 +7,7 @@
 	export let game: Game;
 	export let predictionCount: number = 0;
 	export let href: string | undefined = undefined;
-	export let winners: SessionUser[] = [];
+	export let winners: PublicUser[] = [];
 	export let accentColor: string = '#666666';
 	/**
 	 * Group size and how many of them have picked. Together these drive the
