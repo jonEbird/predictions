@@ -50,11 +50,14 @@
 					About {SITE_NAME}
 				</h2>
 				<p>
-					{SITE_NAME} is a private, invitation-only college football prediction game played by a closed
-					group of friends. Members guess the score of upcoming games and are ranked on a season
-					leaderboard. No money is wagered, no entry fee is charged, and no prize of monetary value is
-					awarded &mdash; the season prize is a cup of coffee. This is a recreational game among
-					friends, not a gambling or wagering service.
+					{SITE_NAME} is a web application at {SITE_URL.replace('https://', '')} that runs a private,
+					invitation-only college football prediction game. Registered members guess the score of
+					upcoming games and are ranked on a season leaderboard. The application sends its members
+					automated notifications about that game: a scheduled job sends reminders before kickoff,
+					and results are sent automatically when a final score is recorded. No money is wagered,
+					no entry fee is charged, and no prize of monetary value is awarded &mdash; the season
+					prize is a cup of coffee. This is a recreational game, not a gambling or wagering
+					service.
 				</p>
 			</section>
 
@@ -63,8 +66,8 @@
 					How members opt in to text messages
 				</h2>
 				<p>
-					Accounts are created by the group administrator for people who have personally asked to
-					join. There is no public sign-up. Text messaging is off by default for every account. A
+					Accounts are created by the site administrator for people who have requested to join.
+					There is no public sign-up. Text messaging is off by default for every account. A
 					member turns it on themselves, while signed in, on their own profile page:
 				</p>
 				<ol class="list-decimal pl-6 mt-3 space-y-2">
@@ -130,7 +133,7 @@
 					</li>
 					<li><strong>Game results:</strong> the final score and how your prediction placed.</li>
 					<li>
-						<strong>Group announcements:</strong> occasional notes from the group administrator.
+						<strong>Group announcements:</strong> occasional notes from the site administrator.
 					</li>
 				</ul>
 				<p class="mt-3">Every message identifies {SITE_NAME} as the sender. Sample message:</p>
