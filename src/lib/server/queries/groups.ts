@@ -45,6 +45,15 @@ export async function getGroupBySlugAndSeason(slug: string, season: number) {
 }
 
 /**
+ * Get a specific group by id
+ */
+export async function getGroupById(groupId: number) {
+	const result = await db.select().from(groups).where(eq(groups.id, groupId)).limit(1);
+
+	return result[0] || null;
+}
+
+/**
  * Get a group with all its games for a specific season
  */
 export async function getGroupWithGames(slug: string, season: number) {

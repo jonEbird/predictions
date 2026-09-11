@@ -5,9 +5,16 @@ import {
 	getUserPrediction,
 	createPrediction,
 	updatePrediction,
-	calculateRankings
+	calculateRankings,
+	haveAllMembersPredicted
 } from '$lib/server/queries/predictions';
-import { isUserMemberOfGroup, getGroupMembers, isUserGroupAdmin } from '$lib/server/queries/groups';
+import { notifyIfPredictionsJustCompleted } from '$lib/server/prediction-reveal';
+import {
+	isUserMemberOfGroup,
+	getGroupMembers,
+	isUserGroupAdmin,
+	getGroupById
+} from '$lib/server/queries/groups';
 import { canUserPredict, arePredictionsLocked } from '$lib/server/game-logic/permissions';
 import { calculateDelta, sortPredictions, tiebreakNotes } from '$lib/server/game-logic/rankings';
 import { db } from '$lib/db';
@@ -57,8 +64,13 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 	// Check if user can predict (only for authenticated users)
 	const canPredict = locals.user ? await canUserPredict(locals.user, gameData.game, groupId) : false;
 
+	// The group's own team, so the page can tell an optimistic pick from a
+	// pessimistic one regardless of which side of the matchup we're on.
+	const group = await getGroupById(groupId);
+
 	// Get all group members and their prediction status
 	const allMembers = await getGroupMembers(groupId);
+
 	const memberStatus = await Promise.all(
 		allMembers.map(async (member) => {
 			const hasPredicted = await db
@@ -125,6 +137,7 @@ export const load: PageServerLoad = async ({ locals, params, url }) => {
 		gameStarted,
 		predictionsLocked,
 		groupId,
+		ourTeam: group?.homeTeam ?? null,
 		memberStatus,
 		isAdmin
 	};
@@ -165,6 +178,10 @@ export const actions: Actions = {
 		}
 
 		try {
+			// Read before the write so the reveal email fires on the transition into
+			// a complete group rather than on every pick that lands while it's whole.
+			const wasComplete = await haveAllMembersPredicted(gameId, groupId);
+
 			if (predictionId) {
 				// Update existing prediction
 				await updatePrediction(parseInt(predictionId, 10), homeScore, awayScore);
@@ -183,6 +200,8 @@ export const actions: Actions = {
 					updatedAt: new Date()
 				});
 			}
+
+			await notifyIfPredictionsJustCompleted(gameId, groupId, wasComplete, locals.user.email);
 
 			return { success: true };
 		} catch (err) {
@@ -274,6 +293,9 @@ export const actions: Actions = {
 		}
 
 		try {
+			// Deliberately silent: this only rewrites an existing row, so it can't
+			// complete the group, and an admin correcting a pick after the group has
+			// already seen the reveal email shouldn't trigger a second copy of it.
 			// Update the prediction
 			await db
 				.update(predictions)
@@ -319,6 +341,11 @@ export const actions: Actions = {
 		}
 
 		try {
+			// See the note in `predict`: an admin filling in the last holdout's pick
+			// completes the group just as the member doing it themselves would, so
+			// the reveal email fires either way.
+			const wasComplete = await haveAllMembersPredicted(gameId, groupId);
+
 			// Create the prediction
 			await db.insert(predictions).values({
 				userId,
@@ -332,6 +359,8 @@ export const actions: Actions = {
 				createdAt: new Date(),
 				updatedAt: new Date()
 			});
+
+			await notifyIfPredictionsJustCompleted(gameId, groupId, wasComplete, locals.user.email);
 
 			return { success: true, message: 'Prediction added successfully' };
 		} catch (err) {

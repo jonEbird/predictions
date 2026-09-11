@@ -54,7 +54,10 @@ export async function getGameWithPredictions(gameId: number, groupId: number) {
 		.from(predictions)
 		.innerJoin(users, eq(predictions.userId, users.id))
 		.where(and(eq(predictions.gameId, gameId), eq(predictions.groupId, groupId)))
-		.orderBy(asc(predictions.rank));
+		// Rank is only populated once the game is finished. Before that every rank
+		// is NULL and SQLite is free to return the rows in any order, so fall back
+		// to the order the picks came in -- the same order the reveal email uses.
+		.orderBy(asc(predictions.rank), asc(predictions.createdAt));
 
 	return {
 		game,

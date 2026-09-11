@@ -7,6 +7,13 @@
 	import RankBadge from '$lib/components/RankBadge.svelte';
 	import UserAvatar from '$lib/components/UserAvatar.svelte';
 	import { formatET, easternAbbreviation } from '$lib/datetime';
+	import {
+		marginLabel as formatMargin,
+		findExtremes,
+		extremeEmoji,
+		EXTREME_LABELS,
+		type Extreme
+	} from '$lib/scores';
 
 	export let data: PageData;
 	export let form: any;
@@ -65,10 +72,7 @@
 	}
 
 	function marginLabel(homeScore: number, awayScore: number): string {
-		if (homeScore === awayScore) return 'Tie';
-		return homeScore > awayScore
-			? `${data.game.homeTeam} by ${homeScore - awayScore}`
-			: `${data.game.awayTeam} by ${awayScore - homeScore}`;
+		return formatMargin(homeScore, awayScore, data.game);
 	}
 
 	$: resultsAvailable = data.game.homeScore !== null && data.game.awayScore !== null;
@@ -83,17 +87,21 @@
 		: 'grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 sm:gap-x-4';
 	$: outcomeCellClass = resultsAvailable ? 'flex justify-end' : 'hidden sm:flex sm:justify-end';
 
-	// Once there are real scores the server has already sorted by delta. Before that,
-	// ordering by predicted margin puts the optimists and pessimists at either end,
-	// which is the comparison worth making.
-	$: orderedPredictions = resultsAvailable
-		? data.predictions
-		: [...data.predictions].sort(
-				(a, b) =>
-					b.prediction.homeScore -
-					b.prediction.awayScore -
-					(a.prediction.homeScore - a.prediction.awayScore)
+	// Only meaningful while the Margin column is showing: once there's a real
+	// score the column turns into how far off everyone was, and who was bullish
+	// beforehand stops being the interesting number.
+	$: extremes = resultsAvailable
+		? new Map<number, Extreme>()
+		: findExtremes(
+				data.predictions.map(({ prediction }) => prediction),
+				data.game,
+				data.ourTeam
 			);
+
+	// Once there are real scores the server has already sorted by delta. Before
+	// that the server hands them back in the order they were submitted, which is
+	// the order the reveal email lists them in — the two should agree.
+	$: orderedPredictions = data.predictions;
 </script>
 
 <svelte:head>
@@ -684,7 +692,14 @@
 													</span>
 												</div>
 											{:else}
+												{@const extreme = extremes.get(prediction.id)}
 												<span class="text-xs font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
+													{#if extreme}
+														{@const label = EXTREME_LABELS[extreme].label}
+														<span title={label} aria-label={label}
+															>{extremeEmoji(extreme, prediction.id)}</span
+														>
+													{/if}
 													{marginLabel(prediction.homeScore, prediction.awayScore)}
 												</span>
 											{/if}
