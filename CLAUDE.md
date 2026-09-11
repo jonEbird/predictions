@@ -14,8 +14,6 @@ This document contains guidelines for Claude when working on this repository.
 
 ## Development Workflow
 
-- Always test changes locally with `act` before pushing to GitHub
-- Use `act -j test --container-architecture linux/amd64` to run CI locally
 - Verify tests pass before committing
 
 ## Environment Setup
