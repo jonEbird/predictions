@@ -19,6 +19,16 @@ export function marginLabel(
 }
 
 /**
+ * How far a prediction landed from the final score: "3 off", or a nod to the
+ * one that didn't miss.
+ */
+export function deltaLabel(delta: number | null): string {
+	if (delta === null) return '';
+	if (delta === 0) return '🎯 Perfect!';
+	return `${delta} off`;
+}
+
+/**
  * How far clear of the next-closest pick an extreme has to be before it counts
  * as an outlier. A touchdown: big enough that the group notices, small enough
  * that it still fires on a normal week.

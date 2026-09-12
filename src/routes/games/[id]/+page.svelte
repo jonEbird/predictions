@@ -11,6 +11,7 @@
 		marginLabel as formatMargin,
 		findExtremes,
 		extremeEmoji,
+		deltaLabel,
 		EXTREME_LABELS,
 		type Extreme
 	} from '$lib/scores';
@@ -76,16 +77,20 @@
 	}
 
 	$: resultsAvailable = data.game.homeScore !== null && data.game.awayScore !== null;
-	$: outcomeLabel =
-		data.game.status === 'finished' ? 'Result' : resultsAvailable ? 'Off by' : 'Margin';
 
-	// One grid definition shared by the header and every row, so the columns line up.
+	// Rank and "how far off" get their own columns once there's a score, so the
+	// ranks line up with each other and the deltas line up with each other. A
+	// scheduled game has neither, and shows the predicted margin instead.
+	$: outcomeLabel = resultsAvailable ? 'Off by' : 'Margin';
+
 	// Margin is a nice-to-have, so it gives up its column on narrow screens rather
 	// than squeezing the names; a real result always keeps its place.
-	$: predictionRowGrid = resultsAvailable
-		? 'grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 sm:gap-x-4'
-		: 'grid grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-x-2 sm:gap-x-4';
-	$: outcomeCellClass = resultsAvailable ? 'flex justify-end' : 'hidden sm:flex sm:justify-end';
+	$: outcomeCellHidden = resultsAvailable ? '' : 'hidden sm:table-cell';
+
+	// Widest the table ever gets, for the edit form's full-width row. On a narrow
+	// screen the margin column drops out and the real count is lower, but a
+	// colspan past the end is clamped rather than overflowing.
+	$: columnCount = resultsAvailable ? 4 : 3;
 
 	// Only meaningful while the Margin column is showing: once there's a real
 	// score the column turns into how far off everyone was, and who was bullish
@@ -562,152 +567,186 @@
 						{/if}
 					</h2>
 
-					<div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
-						<!-- Team names live in the header so they aren't repeated on every row -->
-						<div class="{predictionRowGrid} px-4 py-2 bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-							<div>Player</div>
-							<div class="text-center">{data.game.homeTeam} – {data.game.awayTeam}</div>
-							<div class="{outcomeCellClass} text-right">{outcomeLabel}</div>
-						</div>
+					<div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+						<!-- A real table, so every column is sized across all the rows at once.
+						     Laying each row out as its own grid let the columns drift apart. -->
+						<table class="w-full">
+							<thead>
+								<!-- Team names live in the header so they aren't repeated on every row -->
+								<tr
+									class="bg-gray-50 dark:bg-gray-900/60 border-b border-gray-200 dark:border-gray-700 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+								>
+									<th class="px-2 sm:px-4 py-2 text-left font-semibold">Player</th>
+									<th class="px-2 sm:px-4 py-2 text-center font-semibold whitespace-nowrap">
+										{data.game.homeTeam} – {data.game.awayTeam}
+									</th>
+									{#if resultsAvailable}
+										<th class="px-2 sm:px-4 py-2 text-left font-semibold whitespace-nowrap">Rank</th>
+									{/if}
+									<th class="px-2 sm:px-4 py-2 text-right font-semibold whitespace-nowrap {outcomeCellHidden}">
+										{outcomeLabel}
+									</th>
+								</tr>
+							</thead>
 
-						<div class="divide-y divide-gray-200 dark:divide-gray-700">
-							{#each orderedPredictions as { prediction, user }, index}
-								{#if editingPredictionId === prediction.id}
-									<!-- Edit Mode (admin only) -->
-									<form
-										class="px-4 py-3 bg-blue-50 dark:bg-blue-900/20"
-										method="POST"
-										action="?/editPrediction"
-										use:enhance={() => {
-											return async ({ update }) => {
-												await update();
-												cancelEditPrediction();
-											};
-										}}
-									>
-										<input type="hidden" name="predictionId" value={prediction.id} />
-										<input type="hidden" name="groupId" value={data.groupId} />
-
-										<div class="flex items-center gap-2.5 mb-3">
-											<UserAvatar name={user.name} mugshotUrl={user.mugshotUrl} size="xs" />
-											<span class="font-semibold text-gray-900 dark:text-gray-100">{user.name}</span>
-										</div>
-
-										<div class="grid grid-cols-2 gap-4 text-sm mb-3">
-											<div>
-												<div class="text-gray-500 dark:text-gray-400 mb-1">{data.game.homeTeam}</div>
-												<input
-													type="number"
-													name="homeScore"
-													bind:value={editHomeScore}
-													required
-													min="0"
-													class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-lg font-bold dark:bg-gray-700 dark:text-gray-100"
-												/>
-											</div>
-											<div>
-												<div class="text-gray-500 dark:text-gray-400 mb-1">{data.game.awayTeam}</div>
-												<input
-													type="number"
-													name="awayScore"
-													bind:value={editAwayScore}
-													required
-													min="0"
-													class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-lg font-bold dark:bg-gray-700 dark:text-gray-100"
-												/>
-											</div>
-										</div>
-
-										<div class="flex gap-2">
-											<button
-												type="submit"
-												class="flex-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
-											>
-												Save
-											</button>
-											<button
-												type="button"
-												on:click={cancelEditPrediction}
-												class="flex-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors"
-											>
-												Cancel
-											</button>
-										</div>
-									</form>
-								{:else}
-									<div
-										class="{predictionRowGrid} px-4 py-2.5 {prediction.wonCoffee
-											? 'bg-yellow-50 dark:bg-yellow-900/20'
-											: user.id === data.user?.id
-												? 'bg-blue-50/60 dark:bg-blue-900/10'
-												: ''}"
-									>
-										<div class="flex items-center gap-2.5 min-w-0">
-											<UserAvatar name={user.name} mugshotUrl={user.mugshotUrl} size="xs" />
-											<span class="font-semibold text-gray-900 dark:text-gray-100 truncate">
-												{user.name}
-											</span>
-											{#if user.nickname}
-												<span class="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 truncate">
-													"{user.nickname}"
-												</span>
-											{/if}
-											{#if data.isAdmin && !data.gameStarted}
-												<button
-													type="button"
-													title="Edit prediction"
-													aria-label="Edit {user.name}'s prediction"
-													on:click={() => startEditPrediction(prediction.id, prediction.homeScore, prediction.awayScore)}
-													class="flex-shrink-0 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+							<tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+								{#each orderedPredictions as { prediction, user }, index}
+									{#if editingPredictionId === prediction.id}
+										<!-- Edit Mode (admin only) -->
+										<tr>
+											<td colspan={columnCount} class="p-0">
+												<form
+													class="px-4 py-3 bg-blue-50 dark:bg-blue-900/20"
+													method="POST"
+													action="?/editPrediction"
+													use:enhance={() => {
+														return async ({ update }) => {
+															await update();
+															cancelEditPrediction();
+														};
+													}}
 												>
-													<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-													</svg>
-												</button>
-											{/if}
-										</div>
+													<input type="hidden" name="predictionId" value={prediction.id} />
+													<input type="hidden" name="groupId" value={data.groupId} />
 
-										<!-- Fixed-width, tabular digits so the scores line up column-wise -->
-										<div class="flex items-center justify-center gap-1.5 text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums">
-											<span class="w-8 text-right">{prediction.homeScore}</span>
-											<span class="text-gray-400 dark:text-gray-500 font-normal">–</span>
-											<span class="w-8 text-left">{prediction.awayScore}</span>
-										</div>
+													<div class="flex items-center gap-2.5 mb-3">
+														<UserAvatar name={user.name} mugshotUrl={user.mugshotUrl} size="xs" />
+														<span class="font-semibold text-gray-900 dark:text-gray-100">{user.name}</span>
+													</div>
 
-										<div class={outcomeCellClass}>
-											{#if data.game.status === 'finished' && resultsAvailable}
-												<RankBadge
-													rank={prediction.rank}
-													delta={prediction.delta}
-													wonCoffee={prediction.wonCoffee}
-													tiebreak={data.tiebreaks[prediction.id] ?? null}
-												/>
-											{:else if resultsAvailable}
-												<div class="flex items-center gap-2">
-													<span class="text-xs font-medium text-gray-500 dark:text-gray-400">
-														#{index + 1}
-													</span>
-													<span class="text-sm font-semibold tabular-nums {index === 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-700 dark:text-gray-300'}">
-														{prediction.delta ?? ''}
-													</span>
-												</div>
-											{:else}
-												{@const extreme = extremes.get(prediction.id)}
-												<span class="text-xs font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap">
-													{#if extreme}
-														{@const label = EXTREME_LABELS[extreme].label}
-														<span title={label} aria-label={label}
-															>{extremeEmoji(extreme, prediction.id)}</span
+													<div class="grid grid-cols-2 gap-4 text-sm mb-3">
+														<div>
+															<div class="text-gray-500 dark:text-gray-400 mb-1">{data.game.homeTeam}</div>
+															<input
+																type="number"
+																name="homeScore"
+																bind:value={editHomeScore}
+																required
+																min="0"
+																class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-lg font-bold dark:bg-gray-700 dark:text-gray-100"
+															/>
+														</div>
+														<div>
+															<div class="text-gray-500 dark:text-gray-400 mb-1">{data.game.awayTeam}</div>
+															<input
+																type="number"
+																name="awayScore"
+																bind:value={editAwayScore}
+																required
+																min="0"
+																class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-lg font-bold dark:bg-gray-700 dark:text-gray-100"
+															/>
+														</div>
+													</div>
+
+													<div class="flex gap-2">
+														<button
+															type="submit"
+															class="flex-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
 														>
+															Save
+														</button>
+														<button
+															type="button"
+															on:click={cancelEditPrediction}
+															class="flex-1 px-3 py-1.5 bg-gray-600 hover:bg-gray-700 text-white text-sm font-medium rounded-md transition-colors"
+														>
+															Cancel
+														</button>
+													</div>
+												</form>
+											</td>
+										</tr>
+									{:else}
+										<tr
+											class={prediction.wonCoffee
+												? 'bg-yellow-50 dark:bg-yellow-900/20'
+												: user.id === data.user?.id
+													? 'bg-blue-50/60 dark:bg-blue-900/10'
+													: ''}
+										>
+											<!-- max-w-0 lets a long name truncate instead of widening the column -->
+											<td class="px-2 sm:px-4 py-2.5 w-full max-w-0">
+												<div class="flex items-center gap-2.5 min-w-0">
+													<UserAvatar name={user.name} mugshotUrl={user.mugshotUrl} size="xs" />
+													<span class="font-semibold text-gray-900 dark:text-gray-100 truncate">
+														{user.name}
+													</span>
+													{#if user.nickname}
+														<span class="hidden sm:inline text-xs text-gray-500 dark:text-gray-400 truncate">
+															"{user.nickname}"
+														</span>
 													{/if}
-													{marginLabel(prediction.homeScore, prediction.awayScore)}
-												</span>
+													{#if data.isAdmin && !data.gameStarted}
+														<button
+															type="button"
+															title="Edit prediction"
+															aria-label="Edit {user.name}'s prediction"
+															on:click={() => startEditPrediction(prediction.id, prediction.homeScore, prediction.awayScore)}
+															class="flex-shrink-0 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+														>
+															<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+															</svg>
+														</button>
+													{/if}
+												</div>
+											</td>
+
+											<!-- Fixed-width, tabular digits so the scores line up column-wise -->
+											<td class="px-2 sm:px-4 py-2.5 whitespace-nowrap">
+												<div class="flex items-center justify-center gap-1.5 text-lg font-bold text-gray-900 dark:text-gray-100 tabular-nums">
+													<span class="w-8 text-right">{prediction.homeScore}</span>
+													<span class="text-gray-400 dark:text-gray-500 font-normal">–</span>
+													<span class="w-8 text-left">{prediction.awayScore}</span>
+												</div>
+											</td>
+
+											{#if resultsAvailable}
+												<td class="px-2 sm:px-4 py-2.5 whitespace-nowrap">
+													{#if data.game.status === 'finished'}
+														<!-- delta lives in its own column, so it isn't passed here -->
+														<RankBadge
+															rank={prediction.rank}
+															delta={null}
+															wonCoffee={prediction.wonCoffee}
+															tiebreak={data.tiebreaks[prediction.id] ?? null}
+														/>
+													{:else}
+														<span class="text-xs font-medium text-gray-500 dark:text-gray-400">
+															#{index + 1}
+														</span>
+													{/if}
+												</td>
 											{/if}
-										</div>
-									</div>
-								{/if}
-							{/each}
-						</div>
+
+											<td class="px-2 sm:px-4 py-2.5 text-right whitespace-nowrap {outcomeCellHidden}">
+												{#if resultsAvailable}
+													<span
+														class="text-sm font-semibold tabular-nums {index === 0
+															? 'text-green-600 dark:text-green-400'
+															: 'text-gray-700 dark:text-gray-300'}"
+													>
+														{deltaLabel(prediction.delta)}
+													</span>
+												{:else}
+													{@const extreme = extremes.get(prediction.id)}
+													<span class="text-xs font-medium text-gray-600 dark:text-gray-400">
+														{#if extreme}
+															{@const label = EXTREME_LABELS[extreme].label}
+															<span title={label} aria-label={label}
+																>{extremeEmoji(extreme, prediction.id)}</span
+															>
+														{/if}
+														{marginLabel(prediction.homeScore, prediction.awayScore)}
+													</span>
+												{/if}
+											</td>
+										</tr>
+									{/if}
+								{/each}
+							</tbody>
+						</table>
 					</div>
 				</div>
 			{:else if data.predictionsLocked && data.predictions.length === 0}

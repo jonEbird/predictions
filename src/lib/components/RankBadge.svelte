@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { deltaLabel } from '$lib/scores';
+
 	export let rank: number | null;
 	export let delta: number | null = null;
 	export let previousRank: number | null = null;
@@ -45,9 +47,7 @@
 	}
 
 	function getDeltaDisplay(delta: number | null): string {
-		if (delta === null) return '';
-		if (delta === 0) return '🎯 Perfect!';
-		return `${delta} off`;
+		return deltaLabel(delta);
 	}
 
 	$: rankDelta = getRankDelta();
@@ -80,8 +80,15 @@
 	{/if}
 
 	{#if wonCoffee}
-		<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-			☕ Coffee Winner
+		<!-- Cup only: the label was the widest thing in the row, and the row's own
+		     highlight plus the "Winner" callout in the game header already say it. -->
+		<span
+			class="text-sm cursor-help"
+			role="img"
+			title="Coffee Winner"
+			aria-label="Coffee Winner"
+		>
+			☕
 		</span>
 	{/if}
 
